@@ -76,27 +76,8 @@ class MainScene extends Phaser.Scene {
         }
 
         // ---------- Corner Detection ----------
-        const getCornerSprite = (prev, curr, next) => {
-            const dxPrev = curr.x - prev.x;
-            const dyPrev = curr.y - prev.y;
-            const dxNext = next.x - curr.x;
-            const dyNext = next.y - curr.y;
-
-            // TL corner
-            if ((dxPrev === 0 && dyPrev === -1 && dxNext === -1 && dyNext === 0) ||
-                (dxPrev === -1 && dyPrev === 0 && dxNext === 0 && dyNext === -1)) return 'corner_tl';
-            // TR corner
-            if ((dxPrev === 0 && dyPrev === -1 && dxNext === 1 && dyNext === 0) ||
-                (dxPrev === 1 && dyPrev === 0 && dxNext === 0 && dyNext === -1)) return 'corner_tr';
-            // BL corner
-            if ((dxPrev === 0 && dyPrev === 1 && dxNext === -1 && dyNext === 0) ||
-                (dxPrev === -1 && dyPrev === 0 && dxNext === 0 && dyNext === 1)) return 'corner_bl';
-            // BR corner
-            if ((dxPrev === 0 && dyPrev === 1 && dxNext === 1 && dyNext === 0) ||
-                (dxPrev === 1 && dyPrev === 0 && dxNext === 0 && dyNext === 1)) return 'corner_br';
-
-            return null;
-        };
+        // Build a quick lookup set for path positions to test neighbors
+        const pathSet = new Set(pathPositions.map(p => `${p.x},${p.y}`));
 
         // Draw path tiles
         for (let i = 0; i < pathPositions.length; i++) {
@@ -110,10 +91,21 @@ class MainScene extends Phaser.Scene {
                 spriteKey = (next.x === pos.x) ? 'stone_vertical' : 'stone_horizontal';
             } else if(!next && prev){
                 spriteKey = (prev.x === pos.x) ? 'stone_vertical' : 'stone_horizontal';
-            } else if(prev && next){
-                // check for corner first
-                const corner = getCornerSprite(prev, pos, next);
-                spriteKey = corner || ((prev.x === next.x) ? 'stone_vertical' : 'stone_horizontal');
+            } else {
+                // Determine neighbors directly from the path set so corners depend on both sides
+                const left = pathSet.has(`${pos.x-1},${pos.y}`);
+                const right = pathSet.has(`${pos.x+1},${pos.y}`);
+                const up = pathSet.has(`${pos.x},${pos.y-1}`);
+                const down = pathSet.has(`${pos.x},${pos.y+1}`);
+
+                if ((left || right) && (up || down)) {
+                    if (up && left) spriteKey = 'corner_tl';
+                    else if (up && right) spriteKey = 'corner_tr';
+                    else if (down && left) spriteKey = 'corner_bl';
+                    else if (down && right) spriteKey = 'corner_br';
+                } else {
+                    spriteKey = (left || right) ? 'stone_horizontal' : 'stone_vertical';
+                }
             }
 
             if(spriteKey){

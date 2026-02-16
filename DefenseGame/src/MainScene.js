@@ -25,9 +25,15 @@ export default class MainScene extends Phaser.Scene {
 
         // Enemy
         this.load.image('enemy','assets/decorations/enemy.png');
+        this.load.on('complete', () => {
+            this.textures.get('enemy').setFilter(Phaser.Textures.FilterMode.NEAREST);  
+        });
 
         // Tower
         this.load.spritesheet('tower','assets/tower/tower.png',{ frameWidth: 64, frameHeight: 64 });
+        this.load.on('complete', () => {
+            this.textures.get('tower').setFilter(Phaser.Textures.FilterMode.NEAREST);
+        });
     }
 
     create() {

@@ -5,6 +5,8 @@ export default class MenuScene extends Phaser.Scene {
 
     preload() {
         // Optional: load any assets for menu background or buttons
+        this.load.image('menuTitleImage', 'assets/menu/gameTitle.png');
+        this.load.image('menuSubtitleImage', 'assets/menu/subtitleImage.png');
     }
 
     create() {
@@ -32,6 +34,7 @@ export default class MenuScene extends Phaser.Scene {
         gradient.destroy();
 
         // ---------- TITLE ----------
+        /*
         this.title = this.add.text(width / 2, height / 4 - 40, 'MYTHOLOGICAL DEFENSE', {
             fontSize: '68px',
             color: '#64d5ff',
@@ -40,14 +43,23 @@ export default class MenuScene extends Phaser.Scene {
             strokeThickness: 8,
             fontFamily: 'Arial, sans-serif'
         }).setOrigin(0.5);
+        */
+        this.title = this.add.image(width / 2, height / 4 - 40, 'menuTitleImage'
+        ).setOrigin(0.5);
+        //this.title.setScale(1.15);
 
         // Subtitle
+        /*
         this.add.text(width / 2, height / 4 + 30, 'Tower Defense Game', {
             fontSize: '24px',
             color: '#a8daff',
             fontStyle: 'italic',
             fontFamily: 'Arial, sans-serif'
         }).setOrigin(0.5);
+        */
+        this.add.image(width / 2, height / 4 + 55, 'menuSubtitleImage'
+        ).setOrigin(0.5).setScale(0.6);
+
 
         // ---------- BUTTONS ----------
         const buttonData = [

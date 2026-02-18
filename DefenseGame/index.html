@@ -4,11 +4,76 @@
     <meta charset="UTF-8">
     <title>Mythological Defense</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div id="game-container"></div>
+
+<!-- Game UI Overlay -->
+<div id="game-ui">
+    <!-- Top Bar -->
+    <div id="top-bar">
+        <!-- Left: Health -->
+        <div id="health-section" class="ui-section">
+            <div class="ui-label">HEALTH</div>
+            <div class="health-container">
+                <div id="health-bar" class="health-bar"></div>
+                <div id="health-text" class="health-text">20/20</div>
+            </div>
+        </div>
+
+        <!-- Gold Display -->
+        <div id="gold-section" class="ui-section">
+            <div class="ui-label">GOLD</div>
+            <div class="gold-display">
+                <svg class="gold-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="12" r="10" fill="#FFD700"/>
+                    <path d="M12 6L15 12L12 18L9 12Z" fill="#FFA500"/>
+                </svg>
+                <span id="gold-count" class="gold-count">0</span>
+            </div>
+        </div>
+
+        <!-- Center: Wave Info -->
+        <div id="wave-section" class="ui-section">
+            <div class="ui-label">WAVE</div>
+            <div id="wave-number" class="wave-number">1/5</div>
+            <div id="wave-status" class="wave-status">Enemies: 0</div>
+        </div>
+
+        <!-- Center-Right: Towers -->
+        <div id="towers-section" class="ui-section">
+            <div class="ui-label">TOWERS</div>
+            <div id="towers-count" class="towers-count">0/6</div>
+        </div>
+
+        <!-- Speed Controls -->
+        <div id="speed-section" class="ui-section">
+            <div class="ui-label">SPEED</div>
+            <div class="speed-controls">
+                <button class="speed-btn" data-speed="0.5">0.5x</button>
+                <button class="speed-btn active" data-speed="1">1x</button>
+                <button class="speed-btn" data-speed="2">2x</button>
+                <button class="speed-btn" data-speed="4">4x</button>
+            </div>
+        </div>
+
+        <!-- Right: Pause Button -->
+        <div id="controls-section" class="ui-section">
+            <button id="pause-btn" class="pause-button" title="Press ESC to pause">
+                <svg class="pause-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                </svg>
+                <span>PAUSE</span>
+                <span class="keyboard-hint">ESC</span>
+            </button>
+        </div>
+    </div>
+</div>
 
 <script src="phaser.js"></script>
 <script type="module" src="src/game.js"></script>

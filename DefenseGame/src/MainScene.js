@@ -24,7 +24,7 @@ export default class MainScene extends Phaser.Scene {
 
         this.load.image('enemy','assets/decorations/enemy.png');
         this.load.on('complete', () => {
-            this.textures.get('enemy').setFilter(Phaser.Textures.FilterMode.NEAREST);  
+            this.textures.get('enemy').setFilter(Phaser.Textures.FilterMode.NEAREST);
         });
 
         this.load.spritesheet('tower','assets/tower/tower.png',{ frameWidth: 64, frameHeight: 64 });
@@ -61,22 +61,39 @@ export default class MainScene extends Phaser.Scene {
 
         // ---------- PLAYER ----------
         this.playerHealth = 20;
+        this.maxPlayerHealth = 20;
         this.maxTowers = 6;
+        this.gold = 0;
+        this.baseGoldReward = 10;
 
-        // UI
-        this.healthText = this.add.text(16,16,'Health: '+this.playerHealth,{
-            fontSize:'40px', fill:'#ff0000', fontStyle:'bold'
-        }).setScrollFactor(0).setDepth(2000);
+        // Store DOM UI elements for updates
+        this.healthBarElement = document.getElementById('health-bar');
+        this.healthTextElement = document.getElementById('health-text');
+        this.waveNumberElement = document.getElementById('wave-number');
+        this.waveStatusElement = document.getElementById('wave-status');
+        this.towersCountElement = document.getElementById('towers-count');
+        this.goldElement = document.getElementById('gold-count');
+        this.pauseButton = document.getElementById('pause-btn');
 
-        this.waveText = this.add.text(16,60,'Wave: 0',{
-            fontSize:'40px', fill:'#ffffff', fontStyle:'bold'
-        }).setScrollFactor(0).setDepth(2000);
+        // Setup pause button click handler
+        this.pauseButton.addEventListener('click', () => {
+            this.scene.launch('PauseScene');
+            this.scene.pause();
+        });
+
+        // Setup speed button handlers
+        this.setupSpeedButtons();
 
         // ---------- WAVE SYSTEM ----------
         this.currentWave = 0;
         this.maxWaves = 5;
         this.waveInProgress = false;
         this.enemiesAlive = 0;
+        this.waveTimer = null;
+        this.waveSpawningComplete = false;
+        this._starting = false;
+        this._winTriggered = false;
+        this._debugLogged = false;
 
         // ---------- MAP GRASS ----------
         const grassKeys = ['grass1','grass2','grass3','grass4','grass5'];
@@ -143,57 +160,232 @@ export default class MainScene extends Phaser.Scene {
         // ---------- ENEMIES ----------
         this.enemies = this.add.group();
 
+        // ---------- TOWER PLACEMENT ZONES ----------
+        this.towerZones = [
+            {x: 1, y: 10},
+            {x: 1, y: 12},
+            {x: 3, y: 9},
+            {x: 3, y: 13},
+            {x: 6, y: 11},
+            {x: 8, y: 5},
+            {x: 10, y: 7},
+            {x: 10, y: 13},
+            {x: 13, y: 4},
+            {x: 13, y: 13},
+            {x: 18, y: 5},
+            {x: 18, y: 13},
+            {x: 23, y: 14},
+            {x: 25, y: 7},
+            {x: 29, y: 6},
+            {x: 35, y: 7}
+        ];
+
+        // Draw tower placement zones
+        for (const zone of this.towerZones) {
+            this.add.circle(zone.x * this.tileSize + this.tileSize/2, zone.y * this.tileSize + this.tileSize/2, 25, 0x00ff00, 0.3)
+                .setDepth(10);
+        }
+
         // ---------- TOWERS ----------
         this.towers = [];
-        this.input.on('pointerdown', pointer=>{
-            if(this.towers.length<this.maxTowers){
-                const tower = new Tower(this, pointer.worldX, pointer.worldY);
-                this.towers.push(tower);
+        this.input.on('pointerdown', pointer => {
+            if(this.towers.length < this.maxTowers) {
+                const towerPos = this.findNearestZone(pointer.worldX, pointer.worldY);
+                if (towerPos) {
+                    const tower = new Tower(this, towerPos.x, towerPos.y);
+                    this.towers.push(tower);
+                }
             }
         });
 
         // ---------- PAUSE ----------
         this.input.keyboard.on('keydown-ESC',()=>{ this.scene.launch('PauseScene'); this.scene.pause(); });
 
+        // ---------- UI VISIBILITY ----------
+        const uiBar = document.getElementById('game-ui');
+        if (uiBar) uiBar.style.display = 'flex';
+
+        this.events.on('shutdown', () => {
+            if (uiBar) uiBar.style.display = 'none';
+        });
+        this.events.on('sleep', () => {
+            if (uiBar) uiBar.style.display = 'none';
+        });
+
         // ---------- START FIRST WAVE ----------
         this.startNextWave();
     }
 
+    update() {
+        // Update UI
+        this.updateUI();
+        
+        // Check win condition after all waves are spawned
+        if(this.currentWave >= this.maxWaves && this.waveSpawningComplete && this.enemiesAlive <= 0 && this.playerHealth > 0) {
+            if(!this._winTriggered) {
+                this._winTriggered = true;
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('VICTORY CONDITION MET!');
+                console.log(`Wave: ${this.currentWave}/${this.maxWaves}`);
+                console.log(`Enemies: ${this.enemiesAlive}`);
+                console.log(`Health: ${this.playerHealth}`);
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━');
+                this.time.delayedCall(500, ()=> this.winGame());
+            }
+        } else if(this.currentWave >= this.maxWaves) {
+            // Debug info if win condition not met
+            if(!this._debugLogged) {
+                console.log(`Wave complete check: Wave=${this.currentWave}, SpawningDone=${this.waveSpawningComplete}, Enemies=${this.enemiesAlive}, Health=${this.playerHealth}`);
+                this._debugLogged = true;
+            }
+        }
+    }
+
+    setupSpeedButtons() {
+        const scene = this;
+        const topBar = document.getElementById('top-bar');
+        
+        // Use event delegation on the top-bar
+        if (topBar) {
+            console.log('Setting up speed buttons with delegation...');
+            topBar.addEventListener('click', (e) => {
+                if (e.target.classList.contains('speed-btn')) {
+                    const speed = parseFloat(e.target.getAttribute('data-speed'));
+                    console.log(`SPEED BUTTON CLICKED: ${speed}x`);
+                    scene.time.timeScale = speed;
+                    console.log(`✓ Game speed changed to: ${speed}x`);
+                    
+                    // Update active state
+                    document.querySelectorAll('.speed-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    e.target.classList.add('active');
+                }
+            });
+        } else {
+            console.warn('TOP-BAR NOT FOUND');
+        }
+    }
+
+    updateUI() {
+        // Update health bar and text
+        const healthPercent = (this.playerHealth / this.maxPlayerHealth) * 100;
+        if (this.healthBarElement) {
+            this.healthBarElement.style.setProperty('--health-width', healthPercent + '%');
+        }
+        if (this.healthTextElement) {
+            this.healthTextElement.textContent = `${Math.max(this.playerHealth, 0)}/${this.maxPlayerHealth}`;
+        }
+
+        // Update wave info
+        if (this.waveNumberElement) {
+            this.waveNumberElement.textContent = `${this.currentWave}/${this.maxWaves}`;
+        }
+        if (this.waveStatusElement) {
+            this.waveStatusElement.textContent = `Enemies: ${this.enemiesAlive}`;
+        }
+
+        // Update towers count
+        if (this.towersCountElement) {
+            this.towersCountElement.textContent = `${this.towers.length}/${this.maxTowers}`;
+            // Add visual indicator when maxed
+            if (this.towers.length >= this.maxTowers) {
+                this.towersCountElement.classList.add('maxed');
+            } else {
+                this.towersCountElement.classList.remove('maxed');
+            }
+        }
+
+        // Update gold display
+        if (this.goldElement) {
+            this.goldElement.textContent = `${this.gold}`;
+        }
+    }
+
+    findNearestZone(x, y) {
+        const ZONE_RADIUS = 50;
+        for (const zone of this.towerZones) {
+            const zoneWorldX = zone.x * this.tileSize + this.tileSize/2;
+            const zoneWorldY = zone.y * this.tileSize + this.tileSize/2;
+            const dist = Phaser.Math.Distance.Between(x, y, zoneWorldX, zoneWorldY);
+            if (dist <= ZONE_RADIUS) {
+                return {x: zoneWorldX, y: zoneWorldY};
+            }
+        }
+        return null;
+    }
+
     // ---------- WAVE SYSTEM ----------
     startNextWave() {
-        if(this.currentWave >= this.maxWaves) return;
+        // guard re-entrancy
+        if(this._starting) return;
+        this._starting = true;
+
+        // Check if all waves are complete
+        if(this.currentWave >= this.maxWaves) {
+            console.log(`✓✓✓ All ${this.maxWaves} waves have been started.`);
+            console.log(`Remaining enemies: ${this.enemiesAlive}`);
+            this._starting = false;
+            return;
+        }
 
         this.currentWave++;
-        this.waveText.setText('Wave: ' + this.currentWave);
+        console.log(`\n STARTING WAVE ${this.currentWave}/${this.maxWaves}`);
         this.waveInProgress = true;
+        this.waveSpawningComplete = false;
 
         // Increase tower slots per wave
         this.maxTowers = 6 + this.currentWave - 1;
 
         const waveCounts = [5,8,12,16,25];
-        const spawnCount = waveCounts[this.currentWave-1];
-        let spawned = 0;
+        const spawnCount = waveCounts[this.currentWave-1] || 5;
 
-        // Spawn enemies sequentially
+        // Spawn enemies sequentially (1.5 second delay between spawns)
         this.waveTimer = this.time.addEvent({
-            delay: 600,
+            delay: 1500,
             repeat: spawnCount - 1,
-            callback: ()=>{
-                this.spawnEnemy();
-                spawned++;
-                // Start next wave after all enemies spawned and cleared
-                if(spawned === spawnCount){
-                    this.time.addEvent({
-                        delay: 2000,
-                        callback: ()=>{ 
-                            if(this.enemiesAlive <= 0) this.startNextWave(); 
-                        }
-                    });
+            callback: ()=>{ this.spawnEnemy(); },
+            onComplete: ()=>{ 
+                this.waveSpawningComplete = true;
+                console.log(`✓ Wave ${this.currentWave} spawning complete. Enemies alive: ${this.enemiesAlive}`);
+            }
+        });
+
+        // 30 second timer per wave - automatically moves to next wave
+        this.time.delayedCall(30000, ()=>{
+            if(this.waveInProgress) {
+                console.log(`30 second wave timer expired! Wave ${this.currentWave} complete.`);
+                this.waveInProgress = false;
+                this.waveSpawningComplete = true; // Important: Mark spawning as complete for win check
+                
+                // Kill remaining enemies
+                this.enemies.getChildren().forEach(enemy => {
+                    if(enemy.active) {
+                        if(enemy.healthBar) enemy.healthBar.destroy();
+                        enemy.destroy();
+                        this.enemies.remove(enemy);
+                        this.enemiesAlive--;
+                    }
+                });
+                console.log(`Killed remaining enemies. Total alive: ${this.enemiesAlive}`);
+                
+                // Move to next wave only if not the final wave
+                if(this.currentWave < this.maxWaves) {
+                    this.time.delayedCall(1000, ()=> this.startNextWave());
                 }
             }
         });
+
+        this._starting = false;
     }
 
+    checkWaveComplete() {
+        // Not needed anymore - using timer-based system
+    }
+
+    setGameSpeed(speed) {
+        this.time.timeScale = speed;
+    }
     spawnEnemy() {
         const offset = this.tileSize * 0.3;
         const enemy = this.add.sprite(
@@ -202,7 +394,7 @@ export default class MainScene extends Phaser.Scene {
             'enemy'
         ).setDisplaySize(this.tileSize*0.5,this.tileSize*0.5).setDepth(1000);
 
-        enemy.hp = 5 + this.currentWave;  // lowered health
+        enemy.hp = 15 + (this.currentWave * 3);
         enemy.maxHp = enemy.hp;
         enemy.damage = 1 + this.currentWave;
         enemy.pathIndex = 0;
@@ -220,7 +412,7 @@ export default class MainScene extends Phaser.Scene {
         if(enemy.pathIndex>=this.path.length-1) return;
 
         const next = this.path[enemy.pathIndex+1];
-        const duration = Math.max(150, 400 - this.currentWave*50);
+        const duration = Math.max(300, 800 - this.currentWave*80);
 
         this.tweens.add({
             targets: enemy,
@@ -228,25 +420,41 @@ export default class MainScene extends Phaser.Scene {
             y: next.y*this.tileSize + this.tileSize/2,
             duration: duration,
             ease:'Linear',
-            onUpdate: ()=>{ enemy.healthBar.setPosition(enemy.x, enemy.y-40); },
+            onUpdate: ()=>{ if(enemy.healthBar) enemy.healthBar.setPosition(enemy.x, enemy.y-40); },
             onComplete: ()=>{
                 enemy.pathIndex++;
                 if(enemy.pathIndex>=this.path.length-1){
+                    // Enemy has reached the end of path
                     this.playerHealth -= enemy.damage;
-                    enemy.healthBar.destroy();
+                    if(enemy.healthBar) enemy.healthBar.destroy();
                     enemy.destroy();
                     this.enemiesAlive--;
-                    this.healthText.setText('Health: '+Math.max(this.playerHealth,0));
-                    if(this.playerHealth<=0) this.gameOver();
-                } else this.moveEnemy(enemy);
+                    console.log(`Enemy escaped! Alive: ${this.enemiesAlive}`);
+                    if(this.playerHealth<=0) {
+                        this.loseGame();
+                    }
+                } else {
+                    this.moveEnemy(enemy);
+                }
             }
         });
     }
 
-    gameOver(){
-        this.add.text(this.cameras.main.scrollX + 400, this.cameras.main.scrollY + 300, 'GAME OVER',{
-            fontSize:'80px', fill:'#ff0000', fontStyle:'bold'
-        }).setDepth(3000);
-        this.scene.pause();
+    loseGame(){
+        console.log('GAME OVER...');
+        this.waveInProgress = false;
+        const uiBar = document.getElementById('game-ui');
+        if (uiBar) uiBar.style.display = 'none';
+        this.scene.launch('LoseScene');
+        this.scene.pause('MainScene');
+    }
+
+    winGame(){
+        console.log('WINNING GAME...');
+        this.waveInProgress = false;
+        const uiBar = document.getElementById('game-ui');
+        if (uiBar) uiBar.style.display = 'none';
+        this.scene.launch('WinScene');
+        this.scene.pause('MainScene');
     }
 }

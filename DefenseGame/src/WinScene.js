@@ -1,6 +1,11 @@
+import ProgressManager from './ProgressManager.js';
+import AchievementManager from './AchievementManager.js';
+
 export default class WinScene extends Phaser.Scene {
     constructor() {
         super('WinScene');
+        this.levelType = 'MainScene'; // Track which level just completed
+        this.levelNumber = 1;
     }
 
     create() {
@@ -13,9 +18,33 @@ export default class WinScene extends Phaser.Scene {
         // Overlay
         this.add.rectangle(width / 2, height / 2, width, height, 0x000000).setDepth(2999).setAlpha(0.85);
 
-        // Get gold from main scene
-        const mainScene = this.scene.get('MainScene');
-        const gold = mainScene.gold || 0;
+        // determine level from data passed when scene was launched
+        const data = this.sys.settings.data || {};
+        this.levelNumber = data.level || 1;
+        switch (this.levelNumber) {
+            case 1: this.levelType = 'MainScene'; break;
+            case 2: this.levelType = 'Level2Scene'; break;
+            case 3: this.levelType = 'Level3Scene'; break;
+        }
+
+        // Save progress (redundant calls are OK)
+        ProgressManager.completeLevel(this.levelNumber);
+
+        // Try unlocking achievements and show a small popup when unlocked
+        const unlocked = AchievementManager.unlockAchievement('first_win');
+        if (unlocked) {
+            const achText = this.add.text(width / 2, height / 2 - 220, `Achievement Unlocked: ${AchievementManager.ACHIEVEMENTS.first_win.name} ${AchievementManager.ACHIEVEMENTS.first_win.icon}`, {
+                fontSize: '20px',
+                color: '#FFD700',
+                fontFamily: 'Arial',
+                fontStyle: 'bold'
+            }).setOrigin(0.5).setDepth(4000);
+
+            this.tweens.add({ targets: achText, alpha: 0, delay: 2000, duration: 800, onComplete: () => achText.destroy() });
+        }
+
+        // Get gold from passed data (will be set by the calling level scene)
+        const gold = data.gold || 0;
 
         // Win message with animation
         const title = this.add.text(width / 2, height / 2 - 150, 'VICTORY!', {
@@ -35,7 +64,11 @@ export default class WinScene extends Phaser.Scene {
         });
 
         // Subtitle
-        this.add.text(width / 2, height / 2 - 70, 'ALL WAVES DEFEATED!', {
+        let levelText = 'LEVEL 1';
+        if (this.levelType === 'Level2Scene') levelText = 'LEVEL 2';
+        else if (this.levelType === 'Level3Scene') levelText = 'LEVEL 3 - FINAL';
+        
+        this.add.text(width / 2, height / 2 - 70, `${levelText} COMPLETE!`, {
             fontSize: '32px',
             fill: '#90EE90',
             fontFamily: 'Arial',
@@ -67,17 +100,41 @@ export default class WinScene extends Phaser.Scene {
 
         goldDisplay.setDepth(3000);
 
-        // Play Again button
-        this.createButton(width / 2 - 180, height / 2 + 140, 'PLAY AGAIN', '#7c3aed', () => {
-            this.scene.stop('MainScene');
-            this.scene.start('MainScene');
-        });
+        // Button logic based on level
+        if (this.levelType === 'MainScene') {
+            // Level 1 complete - show "Next Level" and "Menu"
+            this.createButton(width / 2 - 180, height / 2 + 140, 'NEXT LEVEL', '#7c3aed', () => {
+                this.scene.stop('MainScene');
+                this.scene.start('Level2Scene');
+            });
 
-        // Return to menu button
-        this.createButton(width / 2 + 180, height / 2 + 140, 'MENU', '#6366f1', () => {
-            this.scene.stop('MainScene');
-            this.scene.start('MenuScene');
-        });
+            this.createButton(width / 2 + 180, height / 2 + 140, 'MENU', '#6366f1', () => {
+                this.scene.stop('MainScene');
+                this.scene.start('MenuScene');
+            });
+        } else if (this.levelType === 'Level2Scene') {
+            // Level 2 complete - show "Next Level" (Level 3) and "Menu"
+            this.createButton(width / 2 - 180, height / 2 + 140, 'NEXT LEVEL', '#7c3aed', () => {
+                this.scene.stop('Level2Scene');
+                this.scene.start('Level3Scene');
+            });
+
+            this.createButton(width / 2 + 180, height / 2 + 140, 'MENU', '#6366f1', () => {
+                this.scene.stop('Level2Scene');
+                this.scene.start('MenuScene');
+            });
+        } else if (this.levelType === 'Level3Scene') {
+            // Level 3 complete - show "Play Again" and "Menu"
+            this.createButton(width / 2 - 180, height / 2 + 140, 'PLAY AGAIN', '#7c3aed', () => {
+                this.scene.stop('Level3Scene');
+                this.scene.start('Level3Scene');
+            });
+
+            this.createButton(width / 2 + 180, height / 2 + 140, 'MENU', '#6366f1', () => {
+                this.scene.stop('Level3Scene');
+                this.scene.start('MenuScene');
+            });
+        }
     }
 
     createButton(x, y, text, color, callback) {

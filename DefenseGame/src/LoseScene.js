@@ -1,6 +1,7 @@
 export default class LoseScene extends Phaser.Scene {
     constructor() {
         super('LoseScene');
+        this.levelType = 'MainScene'; // Track which level just lost
     }
 
     create() {
@@ -12,6 +13,16 @@ export default class LoseScene extends Phaser.Scene {
 
         // Overlay
         this.add.rectangle(width / 2, height / 2, width, height, 0x000000).setDepth(2999).setAlpha(0.85);
+
+        // Determine which level was just lost
+        const mainScene = this.scene.get('MainScene');
+        const level2Scene = this.scene.get('Level2Scene');
+        
+        if (mainScene && mainScene.isActive && mainScene.isActive()) {
+            this.levelType = 'MainScene';
+        } else if (level2Scene && level2Scene.isActive && level2Scene.isActive()) {
+            this.levelType = 'Level2Scene';
+        }
 
         // Loss message with animation
         const title = this.add.text(width / 2, height / 2 - 150, 'DEFEAT', {
@@ -40,13 +51,23 @@ export default class LoseScene extends Phaser.Scene {
 
         // Retry button
         this.createButton(width / 2 - 180, height / 2 + 140, 'RETRY', '#ef4444', () => {
-            this.scene.stop('MainScene');
-            this.scene.start('MainScene');
+            this.scene.stop('LoseScene');
+            if (this.levelType === 'MainScene') {
+                this.scene.stop('MainScene');
+                this.scene.start('MainScene');
+            } else {
+                this.scene.stop('Level2Scene');
+                this.scene.start('Level2Scene');
+            }
         });
 
         // Return to menu button
         this.createButton(width / 2 + 180, height / 2 + 140, 'MENU', '#6366f1', () => {
-            this.scene.stop('MainScene');
+            if (this.levelType === 'MainScene') {
+                this.scene.stop('MainScene');
+            } else {
+                this.scene.stop('Level2Scene');
+            }
             this.scene.start('MenuScene');
         });
     }

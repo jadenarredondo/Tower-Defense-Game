@@ -1,12 +1,10 @@
 import Tower from './Tower.js';
 import AudioManager from './AudioManager.js';
-import EffectsManager from './EffectsManager.js';
 
-export default class MainScene extends Phaser.Scene {
+export default class Level2Scene extends Phaser.Scene {
     constructor() {
-        super('MainScene');
+        super('Level2Scene');
         this.audioManager = new AudioManager();
-        this.effectsManager = null;
     }
 
     preload() {
@@ -27,28 +25,73 @@ export default class MainScene extends Phaser.Scene {
         this.load.image('temple3','assets/decorations/ruined_temple3.png');
 
         this.load.image('enemy','assets/decorations/enemy.png');
+        // 'ghost' enemy is actually the flying creature, handled as animation not static image
         this.load.on('complete', () => {
-            this.textures.get('enemy').setFilter(Phaser.Textures.FilterMode.NEAREST);
+            if (this.textures.exists('enemy'))
+                this.textures.get('enemy').setFilter(Phaser.Textures.FilterMode.NEAREST);
         });
 
         this.load.spritesheet('tower','assets/tower/tower.png',{ frameWidth: 64, frameHeight: 64 });
         this.load.on('complete', () => {
             this.textures.get('tower').setFilter(Phaser.Textures.FilterMode.NEAREST);
         });
+
+        // flying enemy animations – each animation is its own 4‑frame spritesheet
+        const flyingKeys = ['flying_walk','flying_fly','flying_hurt','flying_dead'];
+        flyingKeys.forEach(key => {
+            this.load.spritesheet(key, `assets/decorations/${key}.png`, { frameWidth: 128, frameHeight: 128 });
+        });
+        this.load.on('complete', () => {
+            flyingKeys.forEach(key => {
+                if (this.textures.exists(key)) {
+                    this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+                }
+            });
+        });
     }
 
     create() {
         // ---------- AUDIO SETUP ----------
         this.audioManager.resume();
+        this.audioManager.playBackgroundMusic();
         this.setupAudioControls();
 
-        // ---------- EFFECTS SETUP ----------
-        this.effectsManager = new EffectsManager(this);
-
+        // create flying enemy animations (only needs to be done once)
+        if (!this.anims.exists('flying_walk')) {
+            const flyingKeys = ['flying_walk', 'flying_fly', 'flying_hurt', 'flying_dead'];
+            console.log('📋 Checking flying textures:', flyingKeys.map(k => k + ': ' + this.textures.exists(k)));
+            
+            this.anims.create({
+                key: 'flying_walk',
+                frames: this.anims.generateFrameNumbers('flying_walk', { start: 0, end: 6 }),
+                frameRate: 8,
+                repeat: -1
+            });
+            this.anims.create({
+                key: 'flying_fly',
+                frames: this.anims.generateFrameNumbers('flying_fly', { start: 0, end: 5 }),
+                frameRate: 8,
+                repeat: -1
+            });
+            this.anims.create({
+                key: 'flying_hurt',
+                frames: this.anims.generateFrameNumbers('flying_hurt', { start: 0, end: 2 }),
+                frameRate: 8,
+                repeat: 0
+            });
+            this.anims.create({
+                key: 'flying_dead',
+                frames: this.anims.generateFrameNumbers('flying_dead', { start: 0, end: 4 }),
+                frameRate: 8,
+                repeat: 0
+            });
+            console.log('✅ Flying animations created');
+        }
+        
         // ---------- CONFIG ----------
         this.tileSize = 80;
-        const MAP_WIDTH = 40;
-        const MAP_HEIGHT = 22;
+        const MAP_WIDTH = 60;  // Expanded from 50
+        const MAP_HEIGHT = 35;  // Expanded from 28
 
         // ---------- CAMERA ----------
         this.cameras.main.setBounds(0,0,MAP_WIDTH*this.tileSize,MAP_HEIGHT*this.tileSize);
@@ -80,9 +123,12 @@ export default class MainScene extends Phaser.Scene {
         // ---------- PLAYER ----------
         this.playerHealth = 20;
         this.maxPlayerHealth = 20;
-        this.maxTowers = 6;
-        this.gold = 200;
-        this.baseGoldReward = 10;
+        this.maxTowers = 7;
+        this.gold = 300;
+        this.baseGoldReward = 15;
+        // tower selection/upgrade helpers (same style as level 1)
+        this.selectedTower = null;
+        this.pendingUpgrade = null;
 
         // Tower types definition
         this.towerTypes = {
@@ -93,10 +139,9 @@ export default class MainScene extends Phaser.Scene {
         this.selectedTowerType = 'basic';
 
         // Farm/Gold generation system
-        this.farmGoldPerSecond = 2;
+        this.farmGoldPerSecond = 3;
         this.lastFarmTick = 0;
         this.farmTickInterval = 1000; // 1 second
-
 
         // Store DOM UI elements for updates
         this.healthBarElement = document.getElementById('health-bar');
@@ -109,7 +154,8 @@ export default class MainScene extends Phaser.Scene {
 
         // Setup pause button click handler
         this.pauseButton.addEventListener('click', () => {
-            this.scene.launch('PauseScene', { pausedScene: 'MainScene' });
+            if (this.audioManager) this.audioManager.playClick();
+            this.scene.launch('PauseScene', { pausedScene: 'Level2Scene' });
             this.scene.pause();
         });
 
@@ -122,13 +168,11 @@ export default class MainScene extends Phaser.Scene {
         // Setup keyboard hotkeys for tower selection
         this.setupKeyboardHotkeys();
 
-        // Setup audio controls
-        this.setupAudioControls();
-
         // ---------- WAVE SYSTEM ----------
         this.currentWave = 0;
-        this.maxWaves = 5;
+        this.maxWaves = 12;
         this.waveInProgress = false;
+        this.bossDefeated = false;
         this.enemiesAlive = 0;
         this.waveTimer = null;
         this.waveSpawningComplete = false;
@@ -148,8 +192,10 @@ export default class MainScene extends Phaser.Scene {
 
         // ---------- PATH ----------
         this.pathNodes=[
-            {x:0,y:11},{x:6,y:11},{x:6,y:4},{x:14,y:4},
-            {x:14,y:16},{x:24,y:16},{x:24,y:8},{x:34,y:8},{x:39,y:8}
+            {x:0,y:17},{x:7,y:17},{x:7,y:5},{x:15,y:5},
+            {x:15,y:12},{x:10,y:12},{x:10,y:25},{x:22,y:25},
+            {x:22,y:8},{x:35,y:8},{x:35,y:28},{x:50,y:28},
+            {x:50,y:15},{x:59,y:15},{x:59,y:32},{x:59,y:34}
         ];
 
         this.path = [];
@@ -163,7 +209,7 @@ export default class MainScene extends Phaser.Scene {
             }
         }
 
-        // Path tiles
+        // Path tiles - must be at high depth to appear above decorations
         const pathSet = new Set(this.path.map(p=>`${p.x},${p.y}`));
         for(const p of this.path){
             const L=pathSet.has(`${p.x-1},${p.y}`), R=pathSet.has(`${p.x+1},${p.y}`);
@@ -176,7 +222,7 @@ export default class MainScene extends Phaser.Scene {
                 else if(D&&R) key='corner_br';
             } else key=(L||R)?'stone_horizontal':'stone_vertical';
             this.add.image(p.x*this.tileSize+this.tileSize/2, p.y*this.tileSize+this.tileSize/2, key)
-                .setDisplaySize(this.tileSize,this.tileSize).setDepth(p.y+1);
+                .setDisplaySize(this.tileSize,this.tileSize).setDepth(2000);
         }
 
         // ---------- DECORATIONS ----------
@@ -194,32 +240,43 @@ export default class MainScene extends Phaser.Scene {
                 }
             }
         };
-        place(65,['tree1','tree2'],1.3);
-        place(40,['rock1','rock2'],0.8);
-        place(10,['temple1','temple2','temple3'],1.15);
+        place(100,['tree1','tree2'],1.3);
+        place(60,['rock1','rock2'],0.8);
+        place(15,['temple1','temple2','temple3'],1.15);
 
         // ---------- ENEMIES ----------
         this.enemies = this.add.group();
 
         // ---------- TOWER PLACEMENT ZONES ----------
         this.towerZones = [
-            {x: 1, y: 10},
-            {x: 1, y: 12},
-            {x: 3, y: 9},
-            {x: 3, y: 13},
-            {x: 6, y: 11},
-            {x: 8, y: 5},
-            {x: 10, y: 7},
-            {x: 10, y: 13},
-            {x: 13, y: 4},
-            {x: 13, y: 13},
-            {x: 18, y: 5},
-            {x: 18, y: 13},
-            {x: 23, y: 14},
-            {x: 25, y: 7},
-            {x: 29, y: 6},
-            {x: 35, y: 7}
+            {x: 1, y: 13},
+            {x: 1, y: 15},
+            {x: 3, y: 12},
+            {x: 3, y: 16},
+            {x: 7, y: 2},
+            {x: 7, y: 4},
+            {x: 11, y: 2},
+            {x: 11, y: 10},
+            {x: 14, y: 5},
+            {x: 14, y: 11},
+            {x: 16, y: 18},
+            {x: 20, y: 18},
+            {x: 24, y: 6},
+            {x: 26, y: 6},
+            {x: 24, y: 21},
+            {x: 26, y: 21},
+            {x: 33, y: 8},
+            {x: 35, y: 8},
+            {x: 35, y: 13},
+            {x: 37, y: 18},
+            {x: 42, y: 12},
+            {x: 44, y: 10},
+            {x: 46, y: 20},
+            {x: 48, y: 23}
         ];
+
+        // draw tower zones and enable click handling later... (unchanged)
+
 
         // Draw tower placement zones
         for (const zone of this.towerZones) {
@@ -229,34 +286,30 @@ export default class MainScene extends Phaser.Scene {
 
         // ---------- TOWERS ----------
         this.towers = [];
-        this.selectedTower = null;
-        this.pendingUpgrade = null; // when set, clicking a tower applies this upgrade
         this.input.on('pointerdown', pointer => {
             const towerPos = this.findNearestZone(pointer.worldX, pointer.worldY);
             if (!towerPos) return;
 
-            // Check if tower already exists at this location
+            // Check if a tower already sits there
             const existingTower = this.towers.find(t => 
                 Math.abs(t.sprite.x - towerPos.x) < 5 && 
                 Math.abs(t.sprite.y - towerPos.y) < 5
             );
 
             if (existingTower) {
-                // If player selected an upgrade tool, apply it directly to the clicked tower
                 if (this.pendingUpgrade) {
+                    // apply tool upgrade
                     const costMap = { damage: 75, range: 60, speed: 80 };
                     this.upgradeTower(existingTower, this.pendingUpgrade, costMap[this.pendingUpgrade]);
                     this.pendingUpgrade = null;
-                    // clear UI active states if present
                     document.querySelectorAll('.upgrade-tool-btn').forEach(b => b.classList.remove('active'));
                     this.hideTowerUpgradeMenu();
                 } else {
-                    // Show upgrade menu for this tower
+                    // open upgrade menu
                     this.selectedTower = existingTower;
                     this.showTowerUpgradeMenu(existingTower);
                 }
             } else if (this.towers.length < this.maxTowers) {
-                // Place new tower
                 const towerConfig = this.towerTypes[this.selectedTowerType];
                 if (this.gold >= towerConfig.cost) {
                     const tower = new Tower(this, towerPos.x, towerPos.y, towerConfig, this.audioManager);
@@ -276,7 +329,7 @@ export default class MainScene extends Phaser.Scene {
 
         // ---------- PAUSE ----------
         this.input.keyboard.on('keydown-ESC',()=>{ 
-            this.scene.launch('PauseScene', { pausedScene: 'MainScene' }); 
+            this.scene.launch('PauseScene', { pausedScene: 'Level2Scene' }); 
             this.scene.pause(); 
         });
 
@@ -324,7 +377,7 @@ export default class MainScene extends Phaser.Scene {
             if(!this._winTriggered) {
                 this._winTriggered = true;
                 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━');
-                console.log('🎉 VICTORY CONDITION MET!');
+                console.log('🎉 LEVEL 2 COMPLETE!');
                 console.log(`Wave: ${this.currentWave}/${this.maxWaves}`);
                 console.log(`Enemies: ${this.enemiesAlive}`);
                 console.log(`Health: ${this.playerHealth}`);
@@ -352,6 +405,7 @@ export default class MainScene extends Phaser.Scene {
                     const speed = parseFloat(e.target.getAttribute('data-speed'));
                     console.log(`⚡ SPEED BUTTON CLICKED: ${speed}x`);
                     scene.time.timeScale = speed;
+                    if (scene.audioManager) scene.audioManager.playClick();
                     console.log(`✓ Game speed changed to: ${speed}x`);
                     
                     // Update active state
@@ -391,14 +445,14 @@ export default class MainScene extends Phaser.Scene {
             `;
 
             option.addEventListener('click', () => {
-                this.audioManager.playClick();
+                if (this.audioManager) this.audioManager.playClick();
                 this.selectTowerType(key);
             });
 
             towerListContainer.appendChild(option);
         });
 
-        // --- Upgrade tool buttons (apply upgrade by clicking a tower) ---
+        // add upgrade tools (damage/range/speed) just like level 1
         let toolsContainer = document.getElementById('upgrade-tools');
         if (!toolsContainer) {
             toolsContainer = document.createElement('div');
@@ -418,25 +472,18 @@ export default class MainScene extends Phaser.Scene {
             const btn = document.createElement('button');
             btn.className = 'upgrade-tool-btn';
             btn.textContent = `${u.label} (${u.cost}G)`;
-            btn.style.cssText = 'padding:8px 12px; border-radius:8px; border:2px solid #6366f1; background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%); color:#fff; cursor:pointer; font-weight:700;';
+            btn.style.cssText = 'padding:4px 8px; font-size:12px;';
             btn.addEventListener('click', () => {
-                if (this.gold < u.cost) {
-                    console.log(`❌ Not enough gold for ${u.type} upgrade`);
-                    return;
-                }
-                // toggle selection
-                if (this.pendingUpgrade === u.type) {
-                    this.pendingUpgrade = null;
-                    btn.classList.remove('active');
-                } else {
+                if (this.gold >= u.cost) {
                     this.pendingUpgrade = u.type;
                     document.querySelectorAll('.upgrade-tool-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    console.log(`🔧 Pending upgrade set: ${u.type}`);
+                    if (this.audioManager) this.audioManager.playClick();
                 }
             });
             toolsContainer.appendChild(btn);
         });
+
         // Update UI visibility
         this.updateTowerSelectionUI();
     }
@@ -468,10 +515,22 @@ export default class MainScene extends Phaser.Scene {
                 option.classList.remove('disabled');
             }
         });
+        // disable upgrade tool buttons if player can't afford
+        document.querySelectorAll('.upgrade-tool-btn').forEach(btn => {
+            const text = btn.textContent || '';
+            const match = text.match(/\((\d+)G\)/);
+            if (match) {
+                const cost = parseInt(match[1], 10);
+                if (this.gold < cost) {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                } else {
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                }
+            }
+        });
     }
-
-
-
 
     updateUI() {
         // Update health bar and text
@@ -502,14 +561,9 @@ export default class MainScene extends Phaser.Scene {
             }
         }
 
-        // Update gold display with pulse animation
+        // Update gold display
         if (this.goldElement) {
             this.goldElement.textContent = `${this.gold}`;
-            // Add pulse class for animation
-            this.goldElement.classList.remove('pulse');
-            // Trigger reflow to restart animation
-            void this.goldElement.offsetWidth;
-            this.goldElement.classList.add('pulse');
         }
     }
 
@@ -529,44 +583,24 @@ export default class MainScene extends Phaser.Scene {
     setupKeyboardHotkeys() {
         // 1 = Basic tower
         this.input.keyboard.on('keydown-ONE', () => {
+            if (this.audioManager) this.audioManager.playClick();
             this.selectTowerType('basic');
             console.log('⌨️ Selected: Basic Tower (hotkey 1)');
         });
 
         // 2 = Power tower
         this.input.keyboard.on('keydown-TWO', () => {
+            if (this.audioManager) this.audioManager.playClick();
             this.selectTowerType('power');
             console.log('⌨️ Selected: Power Tower (hotkey 2)');
         });
 
         // 3 = Sniper tower
         this.input.keyboard.on('keydown-THREE', () => {
+            if (this.audioManager) this.audioManager.playClick();
             this.selectTowerType('sniper');
             console.log('⌨️ Selected: Sniper Tower (hotkey 3)');
         });
-    }
-
-    showTowerInfo(tower, mousePos) {
-        const tooltip = document.getElementById('tower-info-tooltip');
-        if (!tooltip) return;
-
-        tooltip.style.visibility = 'visible';
-        tooltip.style.left = mousePos.x + 10 + 'px';
-        tooltip.style.top = mousePos.y + 10 + 'px';
-
-        document.getElementById('tower-info-name').textContent = tower.type;
-        document.getElementById('tower-info-level').textContent = `LEVEL ${tower.level}`;
-        document.getElementById('tower-info-damage').textContent = `DMG: ${tower.damage.toFixed(1)}`;
-        document.getElementById('tower-info-speed').textContent = `SPEED: ${tower.attackSpeed}ms`;
-        document.getElementById('tower-info-range').textContent = `RANGE: ${tower.range}`;
-        
-        const upgradeCost = Math.floor(this.towerTypes[this.selectedTowerType].cost * 0.5);
-        document.getElementById('tower-info-upgrade').textContent = `UPGRADE: ${upgradeCost}g`;
-    }
-
-    hideTowerInfo() {
-        const tooltip = document.getElementById('tower-info-tooltip');
-        if (tooltip) tooltip.style.visibility = 'hidden';
     }
 
     // ---------- WAVE SYSTEM ----------
@@ -585,19 +619,27 @@ export default class MainScene extends Phaser.Scene {
 
         this.currentWave++;
         console.log(`\n🌊 STARTING WAVE ${this.currentWave}/${this.maxWaves}`);
-        this.audioManager.playWaveStart();
+        if (this.audioManager) this.audioManager.playWaveStart();
         this.waveInProgress = true;
         this.waveSpawningComplete = false;
 
         // Increase tower slots per wave
-        this.maxTowers = 6 + this.currentWave - 1;
+        this.maxTowers = 7 + this.currentWave - 1;
 
-        const waveCounts = [5,8,12,16,25];
-        const spawnCount = waveCounts[this.currentWave-1] || 5;
+        // If final wave, spawn boss instead of regular enemies
+        if (this.currentWave >= this.maxWaves) {
+            console.log('👑 BOSS WAVE!');
+            this.spawnBoss();
+            this.waveSpawningComplete = true;
+            return;
+        }
+
+        const waveCounts = [5,8,10,12,15,18,20,22,24,26,28,30];
+        const spawnCount = waveCounts[this.currentWave-1] || 8;
 
         // Spawn enemies sequentially (1.5 second delay between spawns)
         this.waveTimer = this.time.addEvent({
-            delay: 1500,
+            delay: 1200,
             repeat: spawnCount - 1,
             callback: ()=>{ this.spawnEnemy(); },
             onComplete: ()=>{ 
@@ -606,12 +648,12 @@ export default class MainScene extends Phaser.Scene {
             }
         });
 
-        // 30 second timer per wave - automatically moves to next wave
-        this.time.delayedCall(30000, ()=>{
+        // 35 second timer per wave - automatically moves to next wave
+        this.time.delayedCall(35000, ()=>{
             if(this.waveInProgress) {
-                console.log(`⏱️ 30 second wave timer expired! Wave ${this.currentWave} complete.`);
+                console.log(`⏱️ 35 second wave timer expired! Wave ${this.currentWave} complete.`);
                 this.waveInProgress = false;
-                this.waveSpawningComplete = true; // Important: Mark spawning as complete for win check
+                this.waveSpawningComplete = true;
                 
                 // Kill remaining enemies
                 this.enemies.getChildren().forEach(enemy => {
@@ -641,103 +683,8 @@ export default class MainScene extends Phaser.Scene {
     setGameSpeed(speed) {
         this.time.timeScale = speed;
     }
-    spawnEnemy() {
-        const offset = this.tileSize * 0.3;
-        const enemy = this.add.sprite(
-            this.path[0].x*this.tileSize+this.tileSize/2 + Phaser.Math.Between(-offset,offset),
-            this.path[0].y*this.tileSize+this.tileSize/2 + Phaser.Math.Between(-offset,offset),
-            'enemy'
-        ).setDisplaySize(this.tileSize*0.5,this.tileSize*0.5).setDepth(1000);
 
-        enemy.hp = 15 + (this.currentWave * 3);
-        enemy.maxHp = enemy.hp;
-        enemy.damage = 1 + this.currentWave;
-        enemy.pathIndex = 0;
-
-        enemy.healthBar = this.add.rectangle(enemy.x, enemy.y-40, 50,8,0x00ff00).setOrigin(0.5).setDepth(1500);
-
-        this.enemies.add(enemy);
-        this.enemiesAlive++;
-
-        this.moveEnemy(enemy);
-    }
-
-    moveEnemy(enemy){
-        if(!enemy.active) return;
-        if(enemy.pathIndex>=this.path.length-1) return;
-
-        const next = this.path[enemy.pathIndex+1];
-        const duration = Math.max(300, 800 - this.currentWave*80);
-
-        this.tweens.add({
-            targets: enemy,
-            x: next.x*this.tileSize + this.tileSize/2,
-            y: next.y*this.tileSize + this.tileSize/2,
-            duration: duration,
-            ease:'Linear',
-            onUpdate: ()=>{ if(enemy.healthBar) enemy.healthBar.setPosition(enemy.x, enemy.y-40); },
-            onComplete: ()=>{
-                enemy.pathIndex++;
-                if(enemy.pathIndex>=this.path.length-1){
-                    // Enemy has reached the end of path
-                    this.playerHealth -= enemy.damage;
-                    if(enemy.healthBar) enemy.healthBar.destroy();
-                    enemy.destroy();
-                    this.enemiesAlive--;
-                    console.log(`Enemy escaped! Alive: ${this.enemiesAlive}`);
-                    if(this.playerHealth<=0) {
-                        this.loseGame();
-                    }
-                } else {
-                    this.moveEnemy(enemy);
-                }
-            }
-        });
-    }
-
-    loseGame(){
-        console.log('💀 GAME OVER...');
-        this.audioManager.playGameOver();
-        this.waveInProgress = false;
-        const uiBar = document.getElementById('game-ui');
-        if (uiBar) uiBar.style.display = 'none';
-        this.scene.launch('LoseScene');
-        this.scene.pause('MainScene');
-    }
-
-    winGame(){
-        console.log('🎉 WINNING GAME...');
-        this.waveInProgress = false;
-        this.audioManager.playVictory();
-        const uiBar = document.getElementById('game-ui');
-        if (uiBar) uiBar.style.display = 'none';
-        this.scene.launch('WinScene', { level: 1, gold: this.gold });
-        this.scene.pause('MainScene');
-    }
-
-    setupAudioControls() {
-        const muteBtn = document.getElementById('mute-btn');
-        const volumeSlider = document.getElementById('volume-slider');
-
-        if (muteBtn) {
-            muteBtn.addEventListener('click', () => {
-                const isMuted = this.audioManager.toggleMute();
-                muteBtn.textContent = isMuted ? '🔇' : '🔊';
-                this.audioManager.playClick();
-            });
-        }
-
-        if (volumeSlider) {
-            volumeSlider.addEventListener('input', (e) => {
-                const volume = parseFloat(e.target.value) / 100;
-                this.audioManager.setMasterVolume(volume);
-            });
-        }
-    }
-
-    /**
-     * Show tower upgrade menu when tower is clicked
-     */
+    // show upgrade menu copied from MainScene
     showTowerUpgradeMenu(tower) {
         this.hideTowerUpgradeMenu();
         
@@ -806,9 +753,9 @@ export default class MainScene extends Phaser.Scene {
             btn.textContent = `${upgrade.name} (${upgrade.cost}G)`;
             btn.style.cssText = `
                 padding: 12px 16px;
-                background: ${canAfford ? 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' : 'rgba(100, 100, 100, 0.5)'};
-                color: ${canAfford ? '#fff' : '#888'};
-                border: 2px solid ${canAfford ? '#a78bfa' : '#666'};
+                background: ${canAfford ? '#ffffff' : '#cccccc'};
+                color: ${canAfford ? '#000' : '#666'};
+                border: 2px solid ${canAfford ? '#cccccc' : '#999999'};
                 border-radius: 8px;
                 cursor: ${canAfford ? 'pointer' : 'not-allowed'};
                 font-size: 14px;
@@ -819,11 +766,11 @@ export default class MainScene extends Phaser.Scene {
 
             if (canAfford) {
                 btn.addEventListener('mouseover', () => {
-                    btn.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
-                    btn.style.boxShadow = '0 0 15px rgba(124, 58, 237, 0.6)';
+                    btn.style.background = '#f0f0f0';
+                    btn.style.boxShadow = '0 0 8px rgba(255, 255, 255, 0.4)';
                 });
                 btn.addEventListener('mouseout', () => {
-                    btn.style.background = 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)';
+                    btn.style.background = '#ffffff';
                     btn.style.boxShadow = 'none';
                 });
 
@@ -876,9 +823,6 @@ export default class MainScene extends Phaser.Scene {
         document.addEventListener('keydown', closeHandler);
     }
 
-    /**
-     * Hide tower upgrade menu
-     */
     hideTowerUpgradeMenu() {
         const menu = document.getElementById('tower-upgrade-menu');
         if (menu) {
@@ -887,9 +831,6 @@ export default class MainScene extends Phaser.Scene {
         this.selectedTower = null;
     }
 
-    /**
-     * Upgrade a tower's specific stat
-     */
     upgradeTower(tower, upgradeType, cost) {
         if (this.gold < cost) {
             console.log(`❌ Not enough gold!`);
@@ -913,38 +854,173 @@ export default class MainScene extends Phaser.Scene {
         if (upgradeType === 'damage') {
             tower.damage += 2;
             tower.damageUpgrades++;
-            console.log(`⚡ Tower damage boosted! New damage: ${tower.damage.toFixed(1)} (${tower.damageUpgrades}/${tower.maxUpgradesPerType})`);
         } else if (upgradeType === 'range') {
             tower.range += 50;
             tower.rangeUpgrades++;
-            if (tower.rangeCircle) {
-                tower.rangeCircle.setRadius(tower.range);
-                // Ensure the circle stays aligned with the tower sprite
-                if (tower.sprite) {
-                    tower.rangeCircle.setPosition(tower.sprite.x, tower.sprite.y);
-                }
-            }
-            console.log(`📍 Tower range extended! New range: ${tower.range} (${tower.rangeUpgrades}/${tower.maxUpgradesPerType})`);
+            tower.rangeCircle.setRadius(tower.range);
         } else if (upgradeType === 'speed') {
             tower.attackSpeed = Math.max(100, tower.attackSpeed - 100);
             tower.speedUpgrades++;
             if (tower.timer) {
                 tower.timer.destroy();
-                tower.timer = this.time.addEvent({
-                    delay: tower.attackSpeed,
-                    loop: true,
-                    callback: tower.attack,
-                    callbackScope: tower
-                });
+                tower.timer = this.time.addEvent({ delay: tower.attackSpeed, loop: true, callback: tower.attack, callbackScope: tower });
             }
-            console.log(`⏱️ Tower fire speed increased! New speed: ${tower.attackSpeed}ms (${tower.speedUpgrades}/${tower.maxUpgradesPerType})`);
         }
 
-        this.audioManager.playUpgrade();
-        if (this.effectsManager) {
-            this.effectsManager.flash(200, 0x00ff00, 0.3);
+        if (this.audioManager) this.audioManager.playUpgrade();
+    }
+
+    spawnEnemy() {
+        const offset = this.tileSize * 0.3;
+        // decide normal vs ghost – ghost is the flying creature
+        const isGhost = Phaser.Math.Between(0, 100) < 40; // 40% ghost chance
+        const key = isGhost && this.textures.exists('flying_walk') ? 'flying_walk' : 'enemy';
+        const spriteSize = isGhost ? 1.1 : 0.5;
+        
+        const enemy = this.add.sprite(
+            this.path[0].x*this.tileSize+this.tileSize/2 + Phaser.Math.Between(-offset,offset),
+            this.path[0].y*this.tileSize+this.tileSize/2 + Phaser.Math.Between(-offset,offset),
+            key
+        ).setOrigin(0.5).setDisplaySize(this.tileSize * spriteSize, this.tileSize * spriteSize).setDepth(5100);
+
+        enemy.isFlying = isGhost && this.textures.exists('flying_walk');
+        enemy.isGhost = isGhost;
+        
+        if (enemy.isFlying && this.anims.exists('flying_walk')) {
+            console.log('🐉 Flying enemy spawned with walk animation');
+            enemy.play('flying_walk');
+        } else if (enemy.isFlying) {
+            console.log('⚠️ Flying texture exists but animation missing! Texture exists:', this.textures.exists('flying_walk'), 'Animation exists:', this.anims.exists('flying_walk'));
         }
 
-        this.updateTowerSelectionUI();
+        // adjust stats
+        enemy.hp = 20 + (this.currentWave * 4) + (isGhost ? -5 : 0);
+        enemy.maxHp = enemy.hp;
+        enemy.damage = 2 + this.currentWave;
+        enemy.pathIndex = 0;
+
+        enemy.healthBar = this.add.rectangle(enemy.x, enemy.y-40, 50,8,0x00ff00).setOrigin(0.5).setDepth(5150);
+
+        this.enemies.add(enemy);
+        this.enemiesAlive++;
+
+        this.moveEnemy(enemy);
+    }
+
+    moveEnemy(enemy){
+        if(!enemy.active) return;
+        if(enemy.pathIndex>=this.path.length-1) return;
+        
+        if (enemy.isFlying && this.anims.exists('flying_fly')) {
+            // only start flying animation if not already playing
+            const current = enemy.anims.currentAnim ? enemy.anims.currentAnim.key : null;
+            if (current !== 'flying_fly') {
+                enemy.play('flying_fly');
+            }
+        }
+
+        const next = this.path[enemy.pathIndex+1];
+        const duration = Math.max(300, 800 - this.currentWave*80);
+
+        this.tweens.add({
+            targets: enemy,
+            x: next.x*this.tileSize + this.tileSize/2,
+            y: next.y*this.tileSize + this.tileSize/2,
+            duration: duration,
+            ease:'Linear',
+            onUpdate: ()=>{ if(enemy.healthBar) enemy.healthBar.setPosition(enemy.x, enemy.y-40); },
+            onComplete: ()=>{
+                enemy.pathIndex++;
+                if(enemy.pathIndex>=this.path.length-1){
+                    // Enemy has reached the end of path
+                    this.playerHealth -= enemy.damage;
+                    if (this.audioManager) this.audioManager.playDamage();
+                    if(enemy.healthBar) enemy.healthBar.destroy();
+                    enemy.destroy();
+                    this.enemies.remove(enemy);
+                    this.enemiesAlive--;
+                    console.log(`Enemy escaped! Alive: ${this.enemiesAlive}`);
+                    if(this.playerHealth<=0) {
+                        this.loseGame();
+                    }
+                } else {
+                    this.moveEnemy(enemy);
+                }
+            }
+        });
+    }
+
+    loseGame(){
+        console.log('💀 GAME OVER...');
+        if (this.audioManager) this.audioManager.playGameOver();
+        this.waveInProgress = false;
+        const uiBar = document.getElementById('game-ui');
+        if (uiBar) uiBar.style.display = 'none';
+        const towerSelectionPanel = document.getElementById('tower-selection-panel');
+        if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
+        this.scene.launch('LoseScene');
+        this.scene.pause('Level2Scene');
+    }
+
+    winGame(){
+        console.log('🎉 WINNING LEVEL 2...');
+        if (this.audioManager) this.audioManager.playVictory();
+        this.waveInProgress = false;
+        const uiBar = document.getElementById('game-ui');
+        if (uiBar) uiBar.style.display = 'none';
+        const towerSelectionPanel = document.getElementById('tower-selection-panel');
+        if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
+        this.scene.launch('WinScene', { level: 2, gold: this.gold });
+        this.scene.pause('Level2Scene');
+    }
+
+    setupAudioControls() {
+        const muteBtn = document.getElementById('mute-btn');
+        const volumeSlider = document.getElementById('volume-slider');
+
+        if (muteBtn) {
+            muteBtn.addEventListener('click', () => {
+                const isMuted = this.audioManager.toggleMute();
+                muteBtn.textContent = isMuted ? '🔇' : '🔊';
+                this.audioManager.playClick();
+            });
+        }
+
+        if (volumeSlider) {
+            volumeSlider.addEventListener('input', (e) => {
+                const volume = parseFloat(e.target.value) / 100;
+                this.audioManager.setMasterVolume(volume);
+            });
+        }
+    }
+
+    spawnBoss() {
+        const offset = this.tileSize * 0.3;
+        const useFlying = true; // boss always uses flying sprite for dramatic effect
+        const key = useFlying ? (this.textures.exists('flying_walk') ? 'flying_walk' : 'enemy') : 'enemy';
+        const boss = this.add.sprite(
+            this.path[0].x*this.tileSize+this.tileSize/2 + Phaser.Math.Between(-offset,offset),
+            this.path[0].y*this.tileSize+this.tileSize/2 + Phaser.Math.Between(-offset,offset),
+            key
+        ).setDisplaySize(this.tileSize*1.2,this.tileSize*1.2).setDepth(5100).setTint(0xff0000);
+
+        if (useFlying && this.textures.exists('flying_walk')) {
+            boss.isFlying = true;
+            boss.play('flying_walk');
+        }
+
+        boss.hp = 200;
+        boss.maxHp = 200;
+        boss.damage = 5;
+        boss.pathIndex = 0;
+        boss.isBoss = true;
+
+        boss.healthBar = this.add.rectangle(boss.x, boss.y-50, 80,12,0xff0000).setOrigin(0.5).setDepth(5150);
+
+        this.enemies.add(boss);
+        this.enemiesAlive++;
+
+        console.log('👹 Boss spawned!');
+        this.moveEnemy(boss);
     }
 }

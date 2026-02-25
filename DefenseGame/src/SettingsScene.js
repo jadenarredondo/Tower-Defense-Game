@@ -1,3 +1,5 @@
+import ProgressManager from './ProgressManager.js';
+
 export default class SettingsScene extends Phaser.Scene {
     constructor() {
         super('SettingsScene');
@@ -37,19 +39,28 @@ export default class SettingsScene extends Phaser.Scene {
             fontFamily: 'Arial, sans-serif'
         }).setOrigin(0.5);
 
-        // Coming soon message
-        this.add.text(width / 2, height / 2 - 60, 'Coming Soon!', {
-            fontSize: '48px',
-            color: '#a8daff',
-            fontStyle: 'italic',
+        // ---------- DELETE DATA BUTTON ----------
+        const deleteBtn = this.add.text(width / 2, height / 2 - 40, 'DELETE ALL DATA', {
+            fontSize: '32px',
+            color: '#ff6b6b',
+            fontStyle: 'bold',
+            align: 'center',
             fontFamily: 'Arial, sans-serif'
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-        this.add.text(width / 2, height / 2 + 20, 'Settings will be available in a future update.', {
-            fontSize: '24px',
-            color: '#888888',
-            fontFamily: 'Arial, sans-serif'
-        }).setOrigin(0.5);
+        deleteBtn.on('pointerover', () => {
+            deleteBtn.setColor('#ffffff');
+            deleteBtn.setScale(1.1);
+        });
+
+        deleteBtn.on('pointerout', () => {
+            deleteBtn.setColor('#ff6b6b');
+            deleteBtn.setScale(1);
+        });
+
+        deleteBtn.on('pointerdown', () => {
+            this.showDeleteConfirmation();
+        });
 
         // ---------- BACK BUTTON ----------
         const backBtn = this.add.text(width / 2, height / 2 + 120, 'BACK TO MENU', {
@@ -77,6 +88,73 @@ export default class SettingsScene extends Phaser.Scene {
         // ESC to go back
         this.input.keyboard.once('keydown-ESC', () => {
             this.scene.start('MenuScene');
+        });
+    }
+
+    showDeleteConfirmation() {
+        const { width, height } = this.scale;
+
+        // Dark overlay
+        const overlay = this.add.rectangle(width/2, height/2, width, height, 0x000000, 0.7)
+            .setDepth(19);
+
+        // Confirmation panel
+        const panel = this.add.rectangle(width/2, height/2, 500, 280, 0x1a1a2e)
+            .setStrokeStyle(3, 0xff6b6b, 0.8)
+            .setDepth(20);
+
+        // Confirmation text
+        const titleText = this.add.text(width/2, height/2 - 80, 'DELETE ALL DATA?', {
+            fontSize: '40px',
+            fontStyle: 'bold',
+            color: '#ff6b6b',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5).setDepth(21);
+
+        const descText = this.add.text(width/2, height/2 - 10, 'This will erase all progress and cannot be undone!', {
+            fontSize: '16px',
+            color: '#cccccc',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5).setDepth(21);
+
+        // Confirm button
+        const confirmBtn = this.add.text(width/2 - 120, height/2 + 80, 'DELETE', {
+            fontSize: '24px',
+            fontStyle: 'bold',
+            color: '#ffffff',
+            backgroundColor: '#ff6b6b',
+            padding: { x: 20, y: 10 },
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5).setDepth(21).setInteractive({ useHandCursor: true });
+
+        // Cancel button
+        const cancelBtn = this.add.text(width/2 + 120, height/2 + 80, 'CANCEL', {
+            fontSize: '24px',
+            fontStyle: 'bold',
+            color: '#ffffff',
+            backgroundColor: '#4a9eff',
+            padding: { x: 20, y: 10 },
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5).setDepth(21).setInteractive({ useHandCursor: true });
+
+        confirmBtn.on('pointerdown', () => {
+            ProgressManager.resetProgress();
+            console.log('✓ All data deleted!');
+            overlay.destroy();
+            panel.destroy();
+            titleText.destroy();
+            descText.destroy();
+            confirmBtn.destroy();
+            cancelBtn.destroy();
+        });
+
+        cancelBtn.on('pointerdown', () => {
+            overlay.destroy();
+            panel.destroy();
+            titleText.destroy();
+            descText.destroy();
+            confirmBtn.destroy();
+            cancelBtn.destroy();
         });
     }
 

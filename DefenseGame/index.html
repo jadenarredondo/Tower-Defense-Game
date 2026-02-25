@@ -13,6 +13,12 @@
 
 <div id="game-container"></div>
 
+<!-- Audio Controls -->
+<div id="audio-controls">
+    <button id="mute-btn" class="audio-btn" title="Toggle mute">🔊</button>
+    <input type="range" id="volume-slider" class="audio-slider" min="0" max="100" value="50" title="Master Volume">
+</div>
+
 <!-- Game UI Overlay -->
 <div id="game-ui">
     <!-- Top Bar -->
@@ -71,6 +77,25 @@
                 <span>PAUSE</span>
                 <span class="keyboard-hint">ESC</span>
             </button>
+        </div>
+    </div>
+
+    <!-- Bottom Tower Selection Panel -->
+    <div id="tower-selection-panel">
+        <div id="tower-selection-container">
+            <div id="tower-list"></div>
+        </div>
+    </div>
+
+    <!-- Tower Info Tooltip -->
+    <div id="tower-info-tooltip" style="visibility: hidden; position: fixed; background: rgba(15,21,52,0.95); border: 2px solid #64d5ff; border-radius: 8px; padding: 12px; color: white; font-family: Arial; font-size: 12px; max-width: 200px; z-index: 10001; pointer-events: none; contain: layout style paint; will-change: transform;">
+        <div id="tower-info-name" style="font-weight: bold; font-size: 14px; color: #64d5ff; margin-bottom: 8px;"></div>
+        <div id="tower-info-stats" style="line-height: 1.6;">
+            <div id="tower-info-level"></div>
+            <div id="tower-info-damage"></div>
+            <div id="tower-info-speed"></div>
+            <div id="tower-info-range"></div>
+            <div id="tower-info-upgrade" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #64d5ff; color: #FFD700;"></div>
         </div>
     </div>
 </div>

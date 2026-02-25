@@ -12,6 +12,19 @@ export default class MenuScene extends Phaser.Scene {
         ProgressManager.initProgress();
         // Initialize audio context
         this.audioManager.resume();
+
+        // title/subtitle graphics
+        this.load.image('gameTitle','assets/menu/gameTitle.png');
+        this.load.image('subtitle','assets/menu/subtitleImage.png');
+
+        // ensure pixel art stays crisp
+        this.load.on('complete', () => {
+            ['gameTitle','subtitle'].forEach(key => {
+                if (this.textures.exists(key)) {
+                    this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+                }
+            });
+        });
     }
 
     create() {
@@ -38,19 +51,12 @@ export default class MenuScene extends Phaser.Scene {
         this.add.image(0, 0, 'gradientBG').setOrigin(0, 0).setDepth(-1);
         gradient.destroy();
 
-        // ---------- TITLE ----------
-        this.title = this.add.text(width / 2, height / 4 - 40, 'MYTHOLOGICAL DEFENSE', {
-            fontSize: '68px',
-            color: '#64d5ff',
-            fontStyle: 'bold',
-            stroke: '#0a3f5c',
-            strokeThickness: 8,
-            fontFamily: 'Arial, sans-serif'
-        }).setOrigin(0.5);
-
-        // Add glow effect to title
+        // ---------- TITLE (image) ----------
+        // move title a bit higher
+        const titleImg = this.add.image(width / 2, height / 4 - 60, 'gameTitle').setOrigin(0.5);
+        // add a subtle pulsating tween like the old text glow
         this.tweens.add({
-            targets: this.title,
+            targets: titleImg,
             scaleX: 1.02,
             scaleY: 1.02,
             duration: 2000,
@@ -59,18 +65,13 @@ export default class MenuScene extends Phaser.Scene {
             ease: 'Sine.easeInOut'
         });
 
+        // Subtitle image closer to the title but still separated
+        this.add.image(width / 2, height / 4 + 90, 'subtitle').setOrigin(0.5);
+
         // Start background music
         if (this.audioManager) {
             this.audioManager.playBackgroundMusic();
         }
-
-        // Subtitle
-        this.add.text(width / 2, height / 4 + 30, 'Tower Defense Game', {
-            fontSize: '24px',
-            color: '#a8daff',
-            fontStyle: 'italic',
-            fontFamily: 'Arial, sans-serif'
-        }).setOrigin(0.5);
 
         // ---------- BUTTONS ----------
         const buttonData = [
@@ -82,18 +83,33 @@ export default class MenuScene extends Phaser.Scene {
         ];
 
         this.buttons = [];
-        const buttonSpacing = 100;
-        const menuStartY = height / 2 - 80;  // Start below title with space
+        const buttonSpacing = 130; // tighter vertical spacing between rows
+        const baseY = height / 2 + 20;  // bring button block very close to subtitle
+        const offsetX = 220; // reduce horizontal separation slightly
         let scrollOffset = 0;
-        const maxYPos = menuStartY + (buttonData.length - 1) * buttonSpacing;
+        // compute maximum y position for scrolling (4 buttons + exit + tagline)
+        const lastBtnIndex = buttonData.length - 1;
+        const maxRows = 3; // two rows for first 4, one for exit
+        const maxYPos = baseY + (maxRows) * buttonSpacing;
         const maxScroll = Math.max(0, maxYPos + 80 - height);
 
         // Store button elements for scroll updates
         const buttonElements = [];
 
         buttonData.forEach((b, idx) => {
-            const baseY = menuStartY + idx * buttonSpacing;
-            let currentY = baseY;
+            let posX, currentY, basePosY;
+            if (idx < 4) {
+                // first four buttons in 2x2 grid
+                const row = Math.floor(idx / 2);
+                const col = idx % 2;
+                posX = width / 2 + (col === 0 ? -offsetX : offsetX);
+                basePosY = baseY + row * buttonSpacing;
+            } else {
+                // exit button centered on its own row
+                posX = width / 2;
+                basePosY = baseY + 2 * buttonSpacing;
+            }
+            currentY = basePosY;
             
             const colors = ['#00d9ff', '#7c3aed', '#06b6d4'];  // Modern cyan, purple, teal
             const buttonColor = colors[idx % colors.length];
@@ -102,23 +118,23 @@ export default class MenuScene extends Phaser.Scene {
             // Button background box (glass morphism with gradient effect)
             const boxWidth = 400;
             const boxHeight = 80;
-            const buttonBox = this.add.rectangle(width / 2, currentY, boxWidth, boxHeight, 0x0f1534, 0.7)
+            const buttonBox = this.add.rectangle(posX, currentY, boxWidth, boxHeight, 0x0f1534, 0.7)
                 .setStrokeStyle(3, buttonColor, 0.9)
                 .setDepth(5);
 
             // Glow effect shadow - more prominent
-            const glowBox = this.add.rectangle(width / 2, currentY, boxWidth + 30, boxHeight + 30, glowColor, 0)
+            const glowBox = this.add.rectangle(posX, currentY, boxWidth + 30, boxHeight + 30, glowColor, 0)
                 .setStrokeStyle(2, buttonColor, 0.15)
                 .setDepth(4);
 
             // Icon background circle
-            const iconBg = this.add.circle(width / 2 - 150, currentY, 32, glowColor, 0.25)
+            const iconBg = this.add.circle(posX - 150, currentY, 32, glowColor, 0.25)
                 .setStrokeStyle(2, buttonColor, 0.8)
                 .setDepth(5)
                 .setInteractive({ useHandCursor: true });
 
             // Icon
-            const icon = this.add.text(width / 2 - 150, currentY, b.icon, {
+            const icon = this.add.text(posX - 150, currentY, b.icon, {
                 fontSize: '36px',
                 color: buttonColor,
                 fontFamily: 'Arial, sans-serif',
@@ -126,7 +142,7 @@ export default class MenuScene extends Phaser.Scene {
             }).setOrigin(0.5).setDepth(6);
 
             // Button text
-            const btn = this.add.text(width / 2 + 30, currentY, b.text, {
+            const btn = this.add.text(posX + 30, currentY, b.text, {
                 fontSize: '32px',
                 color: buttonColor,
                 fontStyle: 'bold',
@@ -135,7 +151,7 @@ export default class MenuScene extends Phaser.Scene {
             }).setOrigin(0.5).setDepth(6).setInteractive({ useHandCursor: true });
 
             // Right arrow indicator
-            const arrow = this.add.text(width / 2 + 170, currentY, '→', {
+            const arrow = this.add.text(posX + 170, currentY, '→', {
                 fontSize: '32px',
                 color: buttonColor,
                 fontFamily: 'Arial, sans-serif',
@@ -144,8 +160,7 @@ export default class MenuScene extends Phaser.Scene {
             arrow.setAlpha(0.5);
 
             // Store elements for scroll updates
-            buttonElements.push({ baseY, buttonBox, glowBox, iconBg, icon, btn, arrow });
-
+            buttonElements.push({ baseY: basePosY, buttonBox, glowBox, iconBg, icon, btn, arrow });
             // Hover effects
             const onHover = () => {
                 btn.setColor('#ffffff');

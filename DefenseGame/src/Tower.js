@@ -47,9 +47,11 @@ export default class Tower {
             callbackScope: this
         });
 
-        this.incInterval = 30000;
-        this.incomeStart();
-
+        if(this.type == 'Farm')
+        {
+            this.incInterval = 30000;
+            this.incomeStart();
+        }
 
     }
 
@@ -65,6 +67,7 @@ export default class Tower {
     income() {
         this.scene.gold += this.moneyGain;
         console.log(`🌾 Farm income: +${this.moneyGain} gold (Total: ${this.scene.gold})`);
+        
     }
 
     // income() {

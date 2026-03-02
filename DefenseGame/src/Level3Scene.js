@@ -138,7 +138,8 @@ export default class Level3Scene extends Phaser.Scene {
         this.towerTypes = {
             basic: { name: 'Basic', cost: 50, damage: 1, range: 220, attackSpeed: 500, attackSpeedMult: 1, scaleMult: 1, description: 'Standard tower' },
             power: { name: 'Power', cost: 100, damage: 4, range: 200, attackSpeed: 350, attackSpeedMult: 0.7, scaleMult: 1.5, description: 'High damage output' },
-            sniper: { name: 'Sniper', cost: 80, damage: 2.5, range: 300, attackSpeed: 800, attackSpeedMult: 1.6, scaleMult: 1, description: 'Long range specialist' }
+            sniper: { name: 'Sniper', cost: 80, damage: 2.5, range: 300, attackSpeed: 800, attackSpeedMult: 1.6, scaleMult: 1, description: 'Long range specialist' },
+            farm: {name: 'Farm', cost: 50, damage: 0, range: 10, attackSpeed: 1000, attackSpeedMult: 1.6, scaleMult: 1, moneyGain: 50, description: 'Income generator'}
         };
         this.selectedTowerType = 'basic';
 

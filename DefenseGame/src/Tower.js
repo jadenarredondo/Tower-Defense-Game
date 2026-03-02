@@ -8,6 +8,8 @@ export default class Tower {
         this.level = 1;
         this.totalDamage = 0;
         this.type = config.name || 'Basic';
+
+        this.moneyGain = config.moneyGain || 0;
         
         // Track upgrade counts (max 3 of each)
         this.damageUpgrades = 0;
@@ -44,11 +46,40 @@ export default class Tower {
             callback: this.attack,
             callbackScope: this
         });
+
+        this.incInterval = 30000;
+        this.incomeStart();
+
+
     }
+
+    incomeStart() {
+        this.scene.time.addEvent({
+            delay: this.incInterval,
+            callback: this.income,
+            callbackScope: this,
+            loop: true
+        });
+    }
+
+    income() {
+        this.scene.gold += this.moneyGain;
+        console.log(`🌾 Farm income: +${this.moneyGain} gold (Total: ${this.scene.gold})`);
+    }
+
+    // income() {
+    //     this.cWave = this.scene.currentWave;
+    //     if(this.scene.currentWave > this.cWave) {
+    //         this.scene.gold += this.moneyGain;
+    //         this.cWave += 1;
+    //         console.log('money earned');
+    //     }
+        
+    // }
 
     attack() {
         const enemies = this.scene.enemies.getChildren();
-
+        
         for (const enemy of enemies) {
             if (!enemy.active) continue;
 

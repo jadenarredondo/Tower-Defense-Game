@@ -927,6 +927,33 @@ export default class Level2Scene extends Phaser.Scene {
 
         menu.appendChild(buttonsDiv);
 
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'CLOSE (ESC)';
+        closeBtn.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            border: 2px solid #818cf8;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            margin-top: 15px;
+        `;
+        closeBtn.addEventListener('click', () => this.hideTowerUpgradeMenu());
+        closeBtn.addEventListener('mouseover', () => {
+            closeBtn.style.background = 'linear-gradient(135deg, #818cf8 0%, #6366f1 100%)';
+            closeBtn.style.boxShadow = '0 0 15px rgba(99, 102, 241, 0.6)';
+        });
+        closeBtn.addEventListener('mouseout', () => {
+            closeBtn.style.background = 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)';
+            closeBtn.style.boxShadow = 'none';
+        });
+        menu.appendChild(closeBtn);
+
         document.body.appendChild(menu);
 
         const closeHandler = (e) => {

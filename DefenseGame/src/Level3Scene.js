@@ -174,6 +174,9 @@ export default class Level3Scene extends Phaser.Scene {
         // Setup speed button handlers
         this.setupSpeedButtons();
 
+        // Setup tower selection UI
+        this.setupTowerSelectionUI();
+
         // Setup keyboard hotkeys for tower selection
         this.setupKeyboardHotkeys();
 
@@ -195,7 +198,7 @@ export default class Level3Scene extends Phaser.Scene {
 
         // Define path as tile-coordinate array - complex winding snake path for Level 3
         const pathNodes = [
-            { x: 2, y: 3 },     { x: 8, y: 3 },     { x: 14, y: 3 },    { x: 20, y: 3 },
+            { x: 0, y: 0 },     { x: 8, y: 0 },     { x: 14, y: 0 },    { x: 20, y: 0 },
             { x: 20, y: 8 },    { x: 15, y: 8 },    { x: 10, y: 8 },    { x: 5, y: 8 },
             { x: 5, y: 13 },    { x: 12, y: 13 },   { x: 18, y: 13 },   { x: 25, y: 13 },
             { x: 25, y: 18 },   { x: 18, y: 18 },   { x: 10, y: 18 },   { x: 3, y: 18 },
@@ -241,11 +244,25 @@ export default class Level3Scene extends Phaser.Scene {
 
         // ---------- DECORATIONS ----------
         const used = new Set(this.path.map(p => `${p.x},${p.y}`));
+        
+        // Place decorations mostly along the path with some random distribution
         const placeDec = (count, keys, scale) => {
             let placed = 0;
             while (placed < count) {
-                const x = Phaser.Math.Between(0, MAP_WIDTH - 1);
-                const y = Phaser.Math.Between(0, MAP_HEIGHT - 1);
+                // 70% chance to place near path, 30% chance anywhere on map
+                let x, y;
+                if (Phaser.Math.Between(0, 100) < 70 && this.path.length > 0) {
+                    // Pick random path tile and offset nearby
+                    const pathTile = Phaser.Utils.Array.GetRandom(this.path);
+                    x = pathTile.x + Phaser.Math.Between(-3, 3);
+                    y = pathTile.y + Phaser.Math.Between(-3, 3);
+                    x = Phaser.Math.Clamp(x, 0, MAP_WIDTH - 1);
+                    y = Phaser.Math.Clamp(y, 0, MAP_HEIGHT - 1);
+                } else {
+                    x = Phaser.Math.Between(0, MAP_WIDTH - 1);
+                    y = Phaser.Math.Between(0, MAP_HEIGHT - 1);
+                }
+                
                 const id = `${x},${y}`;
                 if (!used.has(id)) {
                     this.add.image(x * this.tileSize + this.tileSize/2, y * this.tileSize + this.tileSize/2,
@@ -255,9 +272,9 @@ export default class Level3Scene extends Phaser.Scene {
                 }
             }
         };
-        placeDec(30, ['tree1','tree2'], 1.5);
-        placeDec(20, ['rock1','rock2'], 1.0);
-        placeDec(10, ['temple1','temple2','temple3'], 2.0);
+        placeDec(12, ['tree1','tree2'], 1.3);
+        placeDec(8, ['rock1','rock2'], 0.8);
+        placeDec(4, ['temple1','temple2','temple3'], 1.2);
 
         // walls / tile array still available in case later logic uses it
         this.walls = this.physics.add.staticGroup();
@@ -279,13 +296,15 @@ export default class Level3Scene extends Phaser.Scene {
             }
         }
 
-        // Draw tower zones
+        // Draw tower zones - VISIBLE GREEN CIRCLES
         this.zones = this.add.graphics();
-        this.zones.lineStyle(3, 0x00ff00, 0.3);
+        this.zones.fillStyle(0x00ff00, 0.2);
+        this.zones.lineStyle(2, 0x00ff00, 0.8);
         this.towerZones.forEach(zone => {
+            this.zones.fillCircle(zone.x, zone.y, 50);
             this.zones.strokeCircle(zone.x, zone.y, 50);
         });
-        this.zones.setDepth(1);
+        this.zones.setDepth(10);
 
         // Tower zone click handler
         this.input.on('pointerdown', pointer => {
@@ -300,12 +319,12 @@ export default class Level3Scene extends Phaser.Scene {
 
         // ---------- WAVES ----------
         this.waves = [
-            { count: 20, delay: 1200, duration: 30000 },
-            { count: 25, delay: 1000, duration: 30000 },
-            { count: 30, delay: 900, duration: 30000 },
-            { count: 35, delay: 800, duration: 30000 },
-            { count: 40, delay: 800, duration: 35000 },
-            { count: 45, delay: 700, duration: 35000 }
+            { count: 20, delay: 600, duration: 30000 },
+            { count: 25, delay: 500, duration: 30000 },
+            { count: 30, delay: 450, duration: 30000 },
+            { count: 35, delay: 400, duration: 30000 },
+            { count: 40, delay: 400, duration: 35000 },
+            { count: 45, delay: 350, duration: 35000 }
         ];
         this.currentWave = 0;
         this.waveActive = false;
@@ -798,6 +817,32 @@ export default class Level3Scene extends Phaser.Scene {
 
         menu.appendChild(buttonsDiv);
 
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'CLOSE (ESC)';
+        closeBtn.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            border: 2px solid #818cf8;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        `;
+        closeBtn.addEventListener('click', () => this.hideTowerUpgradeMenu());
+        closeBtn.addEventListener('mouseover', () => {
+            closeBtn.style.background = 'linear-gradient(135deg, #818cf8 0%, #6366f1 100%)';
+            closeBtn.style.boxShadow = '0 0 15px rgba(99, 102, 241, 0.6)';
+        });
+        closeBtn.addEventListener('mouseout', () => {
+            closeBtn.style.background = 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)';
+            closeBtn.style.boxShadow = 'none';
+        });
+        menu.appendChild(closeBtn);
+
         document.body.appendChild(menu);
 
         const closeHandler = (e) => {
@@ -880,6 +925,7 @@ export default class Level3Scene extends Phaser.Scene {
         this.waveStatusElement.textContent = this.waveActive ? `Enemies: ${this.enemiesAlive}` : 'Ready';
         this.towersCountElement.textContent = `${this.towers.length}/${this.maxTowers}`;
         this.goldElement.textContent = this.gold;
+        this.updateTowerSelectionUI();
     }
 
     spawnBoss() {
@@ -910,6 +956,71 @@ export default class Level3Scene extends Phaser.Scene {
 
         console.log('👹 Boss spawned!');
         this.moveEnemy(boss);
+    }
+
+    setupTowerSelectionUI() {
+        const towerListContainer = document.getElementById('tower-list');
+        const selectionPanel = document.getElementById('tower-selection-panel');
+        
+        if (!towerListContainer || !selectionPanel) return;
+
+        // Clear existing options
+        towerListContainer.innerHTML = '';
+
+        // Show the panel
+        selectionPanel.style.display = 'flex';
+
+        // Populate tower options
+        Object.entries(this.towerTypes).forEach(([key, config]) => {
+            const option = document.createElement('div');
+            option.className = 'tower-option';
+            if (key === this.selectedTowerType) option.classList.add('selected');
+            option.setAttribute('data-tower-type', key);
+            option.innerHTML = `
+                <div class="tower-name">${config.name}</div>
+                <div class="tower-cost">💰 ${config.cost}</div>
+                <div class="tower-description">${config.description}</div>
+            `;
+
+            option.addEventListener('click', () => {
+                if (this.audioManager) this.audioManager.playClick();
+                this.selectTowerType(key);
+            });
+
+            towerListContainer.appendChild(option);
+        });
+
+        // Update UI visibility
+        this.updateTowerSelectionUI();
+    }
+
+    selectTowerType(towerType) {
+        this.selectedTowerType = towerType;
+        console.log(`🎯 Selected tower type: ${towerType}`);
+        
+        // Update UI
+        document.querySelectorAll('.tower-option').forEach(option => {
+            option.classList.remove('selected');
+            if (option.getAttribute('data-tower-type') === towerType) {
+                option.classList.add('selected');
+            }
+        });
+
+        this.updateTowerSelectionUI();
+    }
+
+    updateTowerSelectionUI() {
+        document.querySelectorAll('.tower-option').forEach(option => {
+            const towerType = option.getAttribute('data-tower-type');
+            const config = this.towerTypes[towerType];
+            const canAfford = this.gold >= config.cost;
+            
+            if (!canAfford && towerType !== this.selectedTowerType) {
+                option.classList.add('disabled');
+            } else {
+                option.classList.remove('disabled');
+            }
+        });
     }
 
     loseGame(){
@@ -963,20 +1074,23 @@ export default class Level3Scene extends Phaser.Scene {
     setupKeyboardHotkeys() {
         // 1 = Basic tower
         this.input.keyboard.on('keydown-ONE', () => {
-            this.selectedTowerType = 'basic';
+            if (this.audioManager) this.audioManager.playClick();
+            this.selectTowerType('basic');
             console.log('⌨️ Selected: Basic Tower (hotkey 1)');
         });
 
-        // 2 = Power tower
+        // 2 = Projectile tower
         this.input.keyboard.on('keydown-TWO', () => {
-            this.selectedTowerType = 'power';
-            console.log('⌨️ Selected: Power Tower (hotkey 2)');
+            if (this.audioManager) this.audioManager.playClick();
+            this.selectTowerType('projectile');
+            console.log('⌨️ Selected: Projectile Tower (hotkey 2)');
         });
 
-        // 3 = Sniper tower
+        // 3 = Farm tower
         this.input.keyboard.on('keydown-THREE', () => {
-            this.selectedTowerType = 'sniper';
-            console.log('⌨️ Selected: Sniper Tower (hotkey 3)');
+            if (this.audioManager) this.audioManager.playClick();
+            this.selectTowerType('farm');
+            console.log('⌨️ Selected: Farm Tower (hotkey 3)');
         });
     }
 }

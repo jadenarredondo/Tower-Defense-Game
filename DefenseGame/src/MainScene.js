@@ -7,33 +7,50 @@ export default class MainScene extends Phaser.Scene {
         super('MainScene');
         this.audioManager = new AudioManager();
         this.effectsManager = null;
+        this.debug = false;
     }
 
     preload() {
-        for (let i = 1; i <= 5; i++) this.load.image(`grass${i}`, `assets/tiles/grass${i}.png`);
-        this.load.image('stone_horizontal','assets/tiles/stone_horizontal.png');
-        this.load.image('stone_vertical','assets/tiles/stone_vertical.png');
-        this.load.image('corner_tl','assets/tiles/corner_tl.png');
-        this.load.image('corner_tr','assets/tiles/corner_tr.png');
-        this.load.image('corner_bl','assets/tiles/corner_bl.png');
-        this.load.image('corner_br','assets/tiles/corner_br.png');
+        // Load tile assets
+        for (let i = 1; i <= 5; i++) this.load.image(`grass${i}`, `assets/Tiles/grass${i}.png`);
+        this.load.image('stone_horizontal','assets/Tiles/stone_horizontal.png');
+        this.load.image('stone_vertical','assets/Tiles/stone_vertical.png');
+        this.load.image('corner_tl','assets/Tiles/corner_tl.png');
+        this.load.image('corner_tr','assets/Tiles/corner_tr.png');
+        this.load.image('corner_bl','assets/Tiles/corner_bl.png');
+        this.load.image('corner_br','assets/Tiles/corner_br.png');
 
-        this.load.image('tree1','assets/decorations/tree1.png');
-        this.load.image('tree2','assets/decorations/tree2.png');
-        this.load.image('rock1','assets/decorations/rock1.png');
-        this.load.image('rock2','assets/decorations/rock2.png');
-        this.load.image('temple1','assets/decorations/ruined_temple1.png');
-        this.load.image('temple2','assets/decorations/ruined_temple2.png');
-        this.load.image('temple3','assets/decorations/ruined_temple3.png');
+        // Load decoration assets
+        this.load.image('tree1','assets/Decorations/tree1.png');
+        this.load.image('tree2','assets/Decorations/tree2.png');
+        this.load.image('rock1','assets/Decorations/rock1.png');
+        this.load.image('rock2','assets/Decorations/rock2.png');
+        this.load.image('temple1','assets/Decorations/ruined_temple1.png');
+        this.load.image('temple2','assets/Decorations/ruined_temple2.png');
+        this.load.image('temple3','assets/Decorations/ruined_temple3.png');
 
-        this.load.image('enemy','assets/decorations/enemy.png');
+        // Load enemy assets from new Enemies folder
+        this.load.image('enemy','assets/Enemies/enemy.png');
+        // load flying spritesheets globally so other scenes can reuse
+        this.load.spritesheet('flying_walk','assets/Enemies/flying_walk.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('flying_fly','assets/Enemies/flying_fly.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('flying_hurt','assets/Enemies/flying_hurt.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('flying_dead','assets/Enemies/flying_dead.png', { frameWidth: 128, frameHeight: 128 });
+
+        // Load tower spritesheets - 64x64 per frame
+        this.load.spritesheet('tower_izanami','assets/Tower/Izanami.png', { frameWidth: 64, frameHeight: 64 });
+        this.load.spritesheet('tower_susanoo','assets/Tower/Susanoo.png', { frameWidth: 64, frameHeight: 64 });
+        this.load.image('tower_farm','assets/Tower/shrine_farm.png');
+        // TODO: Load susanoo_water spritesheet when asset is added
+
         this.load.on('complete', () => {
-            this.textures.get('enemy').setFilter(Phaser.Textures.FilterMode.NEAREST);
-        });
-
-        this.load.spritesheet('tower','assets/tower/tower.png',{ frameWidth: 64, frameHeight: 64 });
-        this.load.on('complete', () => {
-            this.textures.get('tower').setFilter(Phaser.Textures.FilterMode.NEAREST);
+            // Apply pixel filter to all textures
+            ['enemy', 'flying_walk', 'flying_fly', 'flying_hurt', 'flying_dead', 
+             'tower_izanami', 'tower_susanoo', 'tower_farm'].forEach(key => {
+                if (this.textures.exists(key)) {
+                    this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+                }
+            });
         });
     }
 
@@ -86,15 +103,14 @@ export default class MainScene extends Phaser.Scene {
 
         // Tower types definition
         this.towerTypes = {
-            basic: { name: 'Basic', cost: 50, damage: 1, range: 220, attackSpeed: 500, attackSpeedMult: 1, scaleMult: 1, description: 'Standard tower' },
-            power: { name: 'Power', cost: 100, damage: 4, range: 200, attackSpeed: 350, attackSpeedMult: 0.7, scaleMult: 1.5, description: 'High damage output' },
-            sniper: { name: 'Sniper', cost: 80, damage: 2.5, range: 300, attackSpeed: 800, attackSpeedMult: 1.6, scaleMult: 1, description: 'Long range specialist' },
-            farm: {name: 'Farm', cost: 50, damage: 0, range: 10, attackSpeed: 1000, attackSpeedMult: 1.6, scaleMult: 1, moneyGain: 50, description: 'Income generator'}
+            basic: { name: 'Izanami', image: 'tower_izanami', cost: 50, damage: 1, range: 220, attackSpeed: 500, attackSpeedMult: 1, scaleMult: 1, description: 'Reliable tower', frames: 15 },
+            projectile: { name: 'Susanoo', image: 'tower_susanoo', cost: 100, damage: 4, range: 200, attackSpeed: 350, attackSpeedMult: 0.7, scaleMult: 1.5, description: 'Water cannon', frames: 15, projectile: 'susanoo_water' },
+            farm: { name: 'Farm', image: 'tower_farm', cost: 50, damage: 0, range: 10, attackSpeed: 1000, attackSpeedMult: 1.6, scaleMult: 1, moneyGain: 5, description: 'Income generator', frames: 1 }
         };
         this.selectedTowerType = 'basic';
 
-        // Farm/Gold generation system
-        this.farmGoldPerSecond = 2;
+        // Farm/Gold generation system (passive income from farm towers)
+        this.farmGoldPerSecond = 5;
         this.lastFarmTick = 0;
         this.farmTickInterval = 1000; // 1 second
 
@@ -232,7 +248,6 @@ export default class MainScene extends Phaser.Scene {
         // ---------- TOWERS ----------
         this.towers = [];
         this.selectedTower = null;
-        this.pendingUpgrade = null; // when set, clicking a tower applies this upgrade
         this.input.on('pointerdown', pointer => {
             const towerPos = this.findNearestZone(pointer.worldX, pointer.worldY);
             if (!towerPos) return;
@@ -244,19 +259,9 @@ export default class MainScene extends Phaser.Scene {
             );
 
             if (existingTower) {
-                // If player selected an upgrade tool, apply it directly to the clicked tower
-                if (this.pendingUpgrade) {
-                    const costMap = { damage: 75, range: 60, speed: 80 };
-                    this.upgradeTower(existingTower, this.pendingUpgrade, costMap[this.pendingUpgrade]);
-                    this.pendingUpgrade = null;
-                    // clear UI active states if present
-                    document.querySelectorAll('.upgrade-tool-btn').forEach(b => b.classList.remove('active'));
-                    this.hideTowerUpgradeMenu();
-                } else {
-                    // Show upgrade menu for this tower
-                    this.selectedTower = existingTower;
-                    this.showTowerUpgradeMenu(existingTower);
-                }
+                // Show upgrade menu for this tower
+                this.selectedTower = existingTower;
+                this.showTowerUpgradeMenu(existingTower);
             } else if (this.towers.length < this.maxTowers) {
                 // Place new tower
                 const towerConfig = this.towerTypes[this.selectedTowerType];
@@ -265,14 +270,14 @@ export default class MainScene extends Phaser.Scene {
                     this.towers.push(tower);
                     this.gold -= towerConfig.cost;
                     this.audioManager.playTowerPlace();
-                    console.log(`🏗️ Tower placed! Cost: -${towerConfig.cost} (Gold: ${this.gold})`);
+                    if (this.debug) console.log(`🏗️ Tower placed! Cost: -${towerConfig.cost} (Gold: ${this.gold})`);
                     this.selectedTower = null;
                     this.hideTowerUpgradeMenu();
                 } else {
                     console.log(`❌ Not enough gold! Need ${towerConfig.cost}, have ${this.gold}`);
                 }
             } else {
-                console.log(`❌ Max towers reached! Upgrade existing towers instead.`);
+                console.log(`❌ Max towers reached! Sell or upgrade existing towers instead.`);
             }
         });
 
@@ -292,6 +297,33 @@ export default class MainScene extends Phaser.Scene {
             if (uiBar) uiBar.style.display = 'none';
             if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
             if (this.audioManager) this.audioManager.stopBackgroundMusic();
+            
+            // Reset time scale to 1x before leaving scene
+            this.time.timeScale = 1;
+
+            // Remove audio event listeners
+            const muteBtn = document.getElementById('mute-btn');
+            const volumeSlider = document.getElementById('volume-slider');
+            if (muteBtn && this.muteClickHandler) {
+                muteBtn.removeEventListener('click', this.muteClickHandler);
+            }
+            if (volumeSlider && this.volumeChangeHandler) {
+                volumeSlider.removeEventListener('input', this.volumeChangeHandler);
+            }
+            
+            // Remove speed button listener
+            const topBar = document.getElementById('top-bar');
+            if (topBar && this.speedButtonHandler) {
+                topBar.removeEventListener('click', this.speedButtonHandler);
+            }
+
+            // remove keyboard listeners added by this scene
+            if (this.input && this.input.keyboard) {
+                this.input.keyboard.off('keydown-ESC');
+                this.input.keyboard.off('keydown-ONE');
+                this.input.keyboard.off('keydown-TWO');
+                this.input.keyboard.off('keydown-THREE');
+            }
         });
         this.events.on('sleep', () => {
             if (uiBar) uiBar.style.display = 'none';
@@ -312,8 +344,18 @@ export default class MainScene extends Phaser.Scene {
         // Farm/Gold generation tick
         const now = this.time.now;
         if (now - this.lastFarmTick >= this.farmTickInterval) {
-            this.gold += this.farmGoldPerSecond;
-            console.log(`🌾 Farm tick: +${this.farmGoldPerSecond} gold (Total: ${this.gold})`);
+            // Sum up gold from all farm towers
+            let totalFarmGold = 0;
+            for (const tower of this.towers) {
+                if (tower.type === 'Farm') {
+                    totalFarmGold += tower.moneyGain;
+                }
+            }
+            
+            this.gold += totalFarmGold;
+            if (totalFarmGold > 0 && this.debug) {
+                console.log(`🌾 Farm tick: +${totalFarmGold} gold (Total: ${this.gold})`);
+            }
             this.lastFarmTick = now;
             this.updateTowerSelectionUI();
         }
@@ -346,23 +388,26 @@ export default class MainScene extends Phaser.Scene {
         const scene = this;
         const topBar = document.getElementById('top-bar');
         
+        // Store handler reference for cleanup on shutdown
+        this.speedButtonHandler = (e) => {
+            if (e.target.classList.contains('speed-btn')) {
+                const speed = parseFloat(e.target.getAttribute('data-speed'));
+                if (this.debug) console.log(`⚡ SPEED BUTTON CLICKED: ${speed}x`);
+                scene.time.timeScale = speed;
+                console.log(`✓ Game speed changed to: ${speed}x`);
+                
+                // Update active state
+                document.querySelectorAll('.speed-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                e.target.classList.add('active');
+            }
+        };
+        
         // Use event delegation on the top-bar
         if (topBar) {
-            console.log('📍 Setting up speed buttons with delegation...');
-            topBar.addEventListener('click', (e) => {
-                if (e.target.classList.contains('speed-btn')) {
-                    const speed = parseFloat(e.target.getAttribute('data-speed'));
-                    console.log(`⚡ SPEED BUTTON CLICKED: ${speed}x`);
-                    scene.time.timeScale = speed;
-                    console.log(`✓ Game speed changed to: ${speed}x`);
-                    
-                    // Update active state
-                    document.querySelectorAll('.speed-btn').forEach(btn => {
-                        btn.classList.remove('active');
-                    });
-                    e.target.classList.add('active');
-                }
-            });
+            if (this.debug) console.log('📍 Setting up speed buttons with delegation...');
+            topBar.addEventListener('click', this.speedButtonHandler);
         } else {
             console.warn('⚠️ TOP-BAR NOT FOUND');
         }
@@ -400,45 +445,6 @@ export default class MainScene extends Phaser.Scene {
             towerListContainer.appendChild(option);
         });
 
-        // --- Upgrade tool buttons (apply upgrade by clicking a tower) ---
-        let toolsContainer = document.getElementById('upgrade-tools');
-        if (!toolsContainer) {
-            toolsContainer = document.createElement('div');
-            toolsContainer.id = 'upgrade-tools';
-            toolsContainer.style.cssText = 'display:flex; gap:8px; margin-top:10px; padding:8px; align-items:center;';
-            selectionPanel.appendChild(toolsContainer);
-        }
-        toolsContainer.innerHTML = '';
-
-        const upgrades = [
-            { type: 'damage', label: 'Boost Damage', cost: 75 },
-            { type: 'range', label: 'Extend Range', cost: 60 },
-            { type: 'speed', label: 'Faster Fire', cost: 80 }
-        ];
-
-        upgrades.forEach(u => {
-            const btn = document.createElement('button');
-            btn.className = 'upgrade-tool-btn';
-            btn.textContent = `${u.label} (${u.cost}G)`;
-            btn.style.cssText = 'padding:8px 12px; border-radius:8px; border:2px solid #6366f1; background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%); color:#fff; cursor:pointer; font-weight:700;';
-            btn.addEventListener('click', () => {
-                if (this.gold < u.cost) {
-                    console.log(`❌ Not enough gold for ${u.type} upgrade`);
-                    return;
-                }
-                // toggle selection
-                if (this.pendingUpgrade === u.type) {
-                    this.pendingUpgrade = null;
-                    btn.classList.remove('active');
-                } else {
-                    this.pendingUpgrade = u.type;
-                    document.querySelectorAll('.upgrade-tool-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    console.log(`🔧 Pending upgrade set: ${u.type}`);
-                }
-            });
-            toolsContainer.appendChild(btn);
-        });
         // Update UI visibility
         this.updateTowerSelectionUI();
     }
@@ -586,7 +592,7 @@ export default class MainScene extends Phaser.Scene {
         }
 
         this.currentWave++;
-        console.log(`\n🌊 STARTING WAVE ${this.currentWave}/${this.maxWaves}`);
+        if (this.debug) console.log(`\n🌊 STARTING WAVE ${this.currentWave}/${this.maxWaves}`);
         this.audioManager.playWaveStart();
         this.waveInProgress = true;
         this.waveSpawningComplete = false;
@@ -720,20 +726,25 @@ export default class MainScene extends Phaser.Scene {
     setupAudioControls() {
         const muteBtn = document.getElementById('mute-btn');
         const volumeSlider = document.getElementById('volume-slider');
+        
+        // Store references for cleanup on shutdown
+        this.muteClickHandler = () => {
+            const isMuted = this.audioManager.toggleMute();
+            muteBtn.textContent = isMuted ? '🔇' : '🔊';
+            this.audioManager.playClick();
+        };
+        
+        this.volumeChangeHandler = (e) => {
+            const volume = parseFloat(e.target.value) / 100;
+            this.audioManager.setMasterVolume(volume);
+        };
 
         if (muteBtn) {
-            muteBtn.addEventListener('click', () => {
-                const isMuted = this.audioManager.toggleMute();
-                muteBtn.textContent = isMuted ? '🔇' : '🔊';
-                this.audioManager.playClick();
-            });
+            muteBtn.addEventListener('click', this.muteClickHandler);
         }
 
         if (volumeSlider) {
-            volumeSlider.addEventListener('input', (e) => {
-                const volume = parseFloat(e.target.value) / 100;
-                this.audioManager.setMasterVolume(volume);
-            });
+            volumeSlider.addEventListener('input', this.volumeChangeHandler);
         }
     }
 
@@ -762,7 +773,7 @@ export default class MainScene extends Phaser.Scene {
         `;
 
         const title = document.createElement('h2');
-        title.textContent = `${tower.type} Tower - Level ${tower.level}`;
+        title.textContent = `${tower.type} Tower`;
         title.style.cssText = `
             color: #64d5ff;
             margin: 0 0 20px 0;
@@ -770,6 +781,43 @@ export default class MainScene extends Phaser.Scene {
             text-shadow: 0 0 10px rgba(100, 213, 255, 0.5);
         `;
         menu.appendChild(title);
+
+        // Level Progress Bar
+        const levelProgress = document.createElement('div');
+        levelProgress.style.cssText = `
+            background: rgba(124, 58, 237, 0.2);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(167, 139, 250, 0.3);
+        `;
+        
+        const levelText = document.createElement('p');
+        levelText.style.cssText = `color: #a8daff; margin: 0 0 10px 0; font-weight: bold;`;
+        levelText.textContent = `Level: ${tower.level} / ${tower.maxLevel}`;
+        levelProgress.appendChild(levelText);
+
+        // Progress bar
+        const progressBar = document.createElement('div');
+        progressBar.style.cssText = `
+            width: 100%;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #7c3aed;
+        `;
+        
+        const progressFill = document.createElement('div');
+        const progressPercent = (tower.level / tower.maxLevel) * 100;
+        progressFill.style.cssText = `
+            width: ${progressPercent}%;
+            height: 100%;
+            background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%);
+            transition: width 0.3s ease;
+        `;
+        progressBar.appendChild(progressFill);
+        levelProgress.appendChild(progressBar);
 
         // Stats display
         const stats = document.createElement('div');
@@ -780,65 +828,106 @@ export default class MainScene extends Phaser.Scene {
             margin-bottom: 20px;
             border: 1px solid rgba(167, 139, 250, 0.3);
         `;
-        stats.innerHTML = `
-            <p style="color: #a8daff; margin: 5px 0;"><strong>Damage:</strong> ${tower.damage.toFixed(1)}</p>
-            <p style="color: #a8daff; margin: 5px 0;"><strong>Range:</strong> ${tower.range}</p>
-            <p style="color: #a8daff; margin: 5px 0;"><strong>Attack Speed:</strong> ${tower.attackSpeed}ms</p>
-        `;
+        
+        // Show different stats based on tower type
+        if (tower.type === 'Farm') {
+            stats.innerHTML = `
+                <p style="color: #fbbf24; margin: 5px 0;"><strong>Gold/Second:</strong> ${tower.moneyGain}</p>
+            `;
+        } else {
+            stats.innerHTML = `
+                <p style="color: #a8daff; margin: 5px 0;"><strong>Damage:</strong> ${tower.damage.toFixed(1)}</p>
+                <p style="color: #a8daff; margin: 5px 0;"><strong>Attack Speed:</strong> ${tower.attackSpeed}ms</p>
+                <p style="color: #a8daff; margin: 5px 0;"><strong>Range:</strong> ${tower.range}</p>
+            `;
+        }
         menu.appendChild(stats);
+        menu.appendChild(levelProgress);
 
-        // Upgrade buttons
-        const upgradesDiv = document.createElement('div');
-        upgradesDiv.style.cssText = `
+        // Upgrade and Sell buttons
+        const buttonsDiv = document.createElement('div');
+        buttonsDiv.style.cssText = `
             display: flex;
-            flex-direction: column;
             gap: 12px;
             margin-bottom: 20px;
         `;
 
-        const upgrades = [
-            { type: 'damage', name: '⚡ Boost Damage +2', cost: 75 },
-            { type: 'range', name: '📍 Extend Range +50', cost: 60 },
-            { type: 'speed', name: '⏱️ Faster Fire Speed', cost: 80 }
-        ];
+        // Upgrade Button
+        const upgradeBtn = document.createElement('button');
+        const canUpgrade = tower.level < tower.maxLevel && this.gold >= tower.upgradeCost;
+        const upgradeCost = tower.upgradeCost;
+        
+        upgradeBtn.textContent = canUpgrade 
+            ? `⬆️ Upgrade (${upgradeCost}G)` 
+            : (tower.level >= tower.maxLevel ? '⭐ MAX LEVEL' : `❌ Upgrade (${upgradeCost}G)`);
+        
+        upgradeBtn.style.cssText = `
+            flex: 1;
+            padding: 12px 16px;
+            background: ${canUpgrade ? 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' : 'rgba(100, 100, 100, 0.5)'};
+            color: ${canUpgrade ? '#fff' : '#888'};
+            border: 2px solid ${canUpgrade ? '#a78bfa' : '#666'};
+            border-radius: 8px;
+            cursor: ${canUpgrade ? 'pointer' : 'not-allowed'};
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            opacity: ${canUpgrade ? '1' : '0.6'};
+        `;
 
-        upgrades.forEach(upgrade => {
-            const btn = document.createElement('button');
-            const canAfford = this.gold >= upgrade.cost;
-            btn.textContent = `${upgrade.name} (${upgrade.cost}G)`;
-            btn.style.cssText = `
-                padding: 12px 16px;
-                background: ${canAfford ? 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' : 'rgba(100, 100, 100, 0.5)'};
-                color: ${canAfford ? '#fff' : '#888'};
-                border: 2px solid ${canAfford ? '#a78bfa' : '#666'};
-                border-radius: 8px;
-                cursor: ${canAfford ? 'pointer' : 'not-allowed'};
-                font-size: 14px;
-                font-weight: bold;
-                transition: all 0.2s ease;
-                opacity: ${canAfford ? '1' : '0.6'};
-            `;
+        if (canUpgrade) {
+            upgradeBtn.addEventListener('mouseover', () => {
+                upgradeBtn.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
+                upgradeBtn.style.boxShadow = '0 0 15px rgba(124, 58, 237, 0.6)';
+            });
+            upgradeBtn.addEventListener('mouseout', () => {
+                upgradeBtn.style.background = 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)';
+                upgradeBtn.style.boxShadow = 'none';
+            });
 
-            if (canAfford) {
-                btn.addEventListener('mouseover', () => {
-                    btn.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
-                    btn.style.boxShadow = '0 0 15px rgba(124, 58, 237, 0.6)';
-                });
-                btn.addEventListener('mouseout', () => {
-                    btn.style.background = 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)';
-                    btn.style.boxShadow = 'none';
-                });
+            upgradeBtn.addEventListener('click', () => {
+                this.upgradeTower(tower, upgradeCost);
+                // Refresh the menu instead of closing it so user can see new stats
+                this.showTowerUpgradeMenu(tower);
+            });
+        }
 
-                btn.addEventListener('click', () => {
-                    this.upgradeTower(tower, upgrade.type, upgrade.cost);
-                    this.hideTowerUpgradeMenu();
-                });
-            }
+        buttonsDiv.appendChild(upgradeBtn);
 
-            upgradesDiv.appendChild(btn);
+        // Sell Button
+        const sellBtn = document.createElement('button');
+        const sellPrice = tower.getSellPrice();
+        
+        sellBtn.textContent = `💰 Sell (${sellPrice}G)`;
+        sellBtn.style.cssText = `
+            flex: 1;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            color: #fff;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        `;
+
+        sellBtn.addEventListener('mouseover', () => {
+            sellBtn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+            sellBtn.style.boxShadow = '0 0 15px rgba(217, 119, 6, 0.6)';
+        });
+        sellBtn.addEventListener('mouseout', () => {
+            sellBtn.style.background = 'linear-gradient(135deg, #d97706 0%, #b45309 100%)';
+            sellBtn.style.boxShadow = 'none';
         });
 
-        menu.appendChild(upgradesDiv);
+        sellBtn.addEventListener('click', () => {
+            this.sellTower(tower);
+            this.hideTowerUpgradeMenu();
+        });
+
+        buttonsDiv.appendChild(sellBtn);
+        menu.appendChild(buttonsDiv);
 
         // Close button
         const closeBtn = document.createElement('button');
@@ -890,63 +979,45 @@ export default class MainScene extends Phaser.Scene {
     }
 
     /**
-     * Upgrade a tower's specific stat
+     * Upgrade a tower to the next level
      */
-    upgradeTower(tower, upgradeType, cost) {
+    upgradeTower(tower, cost) {
         if (this.gold < cost) {
-            console.log(`❌ Not enough gold!`);
+            console.log(`❌ Not enough gold! Need ${cost}, have ${this.gold}`);
             return;
         }
 
-        // Check upgrade limits (max 3 per type)
-        if (upgradeType === 'damage' && tower.damageUpgrades >= tower.maxUpgradesPerType) {
-            console.log(`❌ Damage upgrade limit reached!`);
-            return;
-        } else if (upgradeType === 'range' && tower.rangeUpgrades >= tower.maxUpgradesPerType) {
-            console.log(`❌ Range upgrade limit reached!`);
-            return;
-        } else if (upgradeType === 'speed' && tower.speedUpgrades >= tower.maxUpgradesPerType) {
-            console.log(`❌ Speed upgrade limit reached!`);
-            return;
-        }
-
-        this.gold -= cost;
-
-        if (upgradeType === 'damage') {
-            tower.damage += 2;
-            tower.damageUpgrades++;
-            console.log(`⚡ Tower damage boosted! New damage: ${tower.damage.toFixed(1)} (${tower.damageUpgrades}/${tower.maxUpgradesPerType})`);
-        } else if (upgradeType === 'range') {
-            tower.range += 50;
-            tower.rangeUpgrades++;
-            if (tower.rangeCircle) {
-                tower.rangeCircle.setRadius(tower.range);
-                // Ensure the circle stays aligned with the tower sprite
-                if (tower.sprite) {
-                    tower.rangeCircle.setPosition(tower.sprite.x, tower.sprite.y);
-                }
+        // Use the tower's upgrade method which handles level check
+        if (tower.upgrade()) {
+            this.gold -= cost;
+            console.log(`✨ Tower upgraded! Gold: -${cost} (Total: ${this.gold})`);
+            this.audioManager.playUpgrade();
+            if (this.effectsManager) {
+                this.effectsManager.flash(200, 0x00ff00, 0.3);
             }
-            console.log(`📍 Tower range extended! New range: ${tower.range} (${tower.rangeUpgrades}/${tower.maxUpgradesPerType})`);
-        } else if (upgradeType === 'speed') {
-            tower.attackSpeed = Math.max(100, tower.attackSpeed - 100);
-            tower.speedUpgrades++;
-            if (tower.timer) {
-                tower.timer.destroy();
-                tower.timer = this.time.addEvent({
-                    delay: tower.attackSpeed,
-                    loop: true,
-                    callback: tower.attack,
-                    callbackScope: tower
-                });
-            }
-            console.log(`⏱️ Tower fire speed increased! New speed: ${tower.attackSpeed}ms (${tower.speedUpgrades}/${tower.maxUpgradesPerType})`);
+            this.updateUI();
+            this.updateTowerSelectionUI();
+        } else {
+            console.log(`❌ Tower is already at maximum level!`);
+        }
+    }
+
+    /**
+     * Sell a tower and return partial gold
+     */
+    sellTower(tower) {
+        const sellPrice = tower.sell();
+        this.gold += sellPrice;
+        
+        // Remove tower from array
+        const index = this.towers.indexOf(tower);
+        if (index > -1) {
+            this.towers.splice(index, 1);
         }
 
-        this.audioManager.playUpgrade();
-        if (this.effectsManager) {
-            this.effectsManager.flash(200, 0x00ff00, 0.3);
-        }
-
+        console.log(`💰 Tower sold for ${sellPrice}G (Total gold: ${this.gold})`);
+        this.audioManager.playClick();
+        this.updateUI();
         this.updateTowerSelectionUI();
     }
 }

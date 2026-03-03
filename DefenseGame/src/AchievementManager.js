@@ -40,7 +40,12 @@ export default class AchievementManager {
 
     static getAchievements() {
         const saved = localStorage.getItem('mythological_defense_achievements');
-        return saved ? JSON.parse(saved) : {};
+        try {
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) {
+            console.error('❌ Failed to parse achievements:', e);
+            return {};
+        }
     }
 
     static unlockAchievement(achievementId) {
@@ -50,9 +55,14 @@ export default class AchievementManager {
                 id: achievementId,
                 unlockedAt: new Date().toISOString()
             };
-            localStorage.setItem('mythological_defense_achievements', JSON.stringify(achievements));
-            console.log(`🏆 Achievement Unlocked: ${this.ACHIEVEMENTS[achievementId].name}`);
-            return true;
+            try {
+                localStorage.setItem('mythological_defense_achievements', JSON.stringify(achievements));
+                console.log(`🏆 Achievement Unlocked: ${this.ACHIEVEMENTS[achievementId]?.name || 'Unknown'}`);
+                return true;
+            } catch (e) {
+                console.error('❌ Failed to save achievement:', e);
+                return false;
+            }
         }
         return false;
     }

@@ -1,6 +1,7 @@
 export default class ProgressManager {
     static STORAGE_KEY = 'mythological_defense_progress';
     static SAVE_GAME_KEY = 'mythological_defense_save';
+    static MAX_LEVELS = 3;
 
     static initProgress() {
         if (!localStorage.getItem(this.STORAGE_KEY)) {
@@ -15,11 +16,20 @@ export default class ProgressManager {
 
     static getProgress() {
         const data = localStorage.getItem(this.STORAGE_KEY);
-        return data ? JSON.parse(data) : null;
+        try {
+            return data ? JSON.parse(data) : null;
+        } catch (e) {
+            console.error('❌ Failed to parse progress data:', e);
+            return null;
+        }
     }
 
     static saveProgress(data) {
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+        } catch (e) {
+            console.error('❌ Failed to save progress:', e);
+        }
     }
 
     static completeLevel(levelNum) {
@@ -51,7 +61,9 @@ export default class ProgressManager {
     }
 
     static getUnlockedLevels() {
-        return [1, 2, 3].filter(level => this.isLevelUnlocked(level));
+        // Use MAX_LEVELS constant - easily configurable for adding new levels
+        return Array.from({ length: this.MAX_LEVELS }, (_, i) => i + 1)
+            .filter(level => this.isLevelUnlocked(level));
     }
 
     static resetProgress() {
@@ -63,13 +75,22 @@ export default class ProgressManager {
 
     // Game save/load system
     static saveGameState(gameState) {
-        localStorage.setItem(this.SAVE_GAME_KEY, JSON.stringify(gameState));
-        console.log('✓ Game saved!');
+        try {
+            localStorage.setItem(this.SAVE_GAME_KEY, JSON.stringify(gameState));
+            console.log('✓ Game saved!');
+        } catch (e) {
+            console.error('❌ Failed to save game state:', e);
+        }
     }
 
     static loadGameState() {
         const data = localStorage.getItem(this.SAVE_GAME_KEY);
-        return data ? JSON.parse(data) : null;
+        try {
+            return data ? JSON.parse(data) : null;
+        } catch (e) {
+            console.error('❌ Failed to load game state:', e);
+            return null;
+        }
     }
 
     static hasSavedGame() {

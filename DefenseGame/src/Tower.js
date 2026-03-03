@@ -8,37 +8,43 @@ export default class Tower {
         this.level = 1;
         this.totalDamage = 0;
         this.type = config.name || 'Basic';
+        this.baseCost = config.cost || 50; // Store original cost for sell price calculation
+        this.imageKey = config.image || 'tower_izanami'; // Get image key from config
+        this.frameCount = config.frames || 1; // Number of animation frames
 
         this.moneyGain = config.moneyGain || 0;
+        this.projectileKey = config.projectile || null; // For towers that shoot projectiles
         
-        // Track upgrade counts (max 3 of each)
-        this.damageUpgrades = 0;
-        this.rangeUpgrades = 0;
-        this.speedUpgrades = 0;
-        this.maxUpgradesPerType = 3;
+        // Track upgrades (max 10 levels total)
+        this.maxLevel = 10;
+        this.upgradeCost = 100; // Standard cost per upgrade
         
         // Tower scaling for visual variety
         const scale = config.scaleMult || 1;
 
-        this.sprite = scene.add.sprite(x, y, 'tower')
+        // Create sprite using the image key from tower config
+        this.sprite = scene.add.sprite(x, y, this.imageKey)
             .setOrigin(0.5)
             .setScale(2 * scale)
             .setDepth(5200);
 
+        // Create animation if tower has frames
+        if (this.frameCount > 1) {
+            const animKey = `${this.imageKey}_idle`;
+            if (!scene.anims.exists(animKey)) {
+                scene.anims.create({
+                    key: animKey,
+                    frames: scene.anims.generateFrameNumbers(this.imageKey, { start: 0, end: this.frameCount - 1 }),
+                    frameRate: 10,
+                    repeat: -1
+                });
+            }
+            this.sprite.play(animKey);
+        }
+
         // Draw visible range circle
         this.rangeCircle = scene.add.circle(x, y, this.range, 0x00ffff, 0.2)
             .setDepth(5150);
-
-        if (!scene.anims.exists('tower_attack')) {
-            scene.anims.create({
-                key: 'tower_attack',
-                frames: scene.anims.generateFrameNumbers('tower', { start: 0, end: 15 }),
-                frameRate: 10,
-                repeat: -1
-            });
-        }
-
-        this.sprite.play('tower_attack');
 
         this.timer = scene.time.addEvent({
             delay: this.attackSpeed,
@@ -56,7 +62,7 @@ export default class Tower {
     }
 
     incomeStart() {
-        this.scene.time.addEvent({
+        this.incomeTimer = this.scene.time.addEvent({
             delay: this.incInterval,
             callback: this.income,
             callbackScope: this,
@@ -66,7 +72,9 @@ export default class Tower {
 
     income() {
         this.scene.gold += this.moneyGain;
-        console.log(`🌾 Farm income: +${this.moneyGain} gold (Total: ${this.scene.gold})`);
+        if (this.scene.debug) {
+            console.log(`🌾 Farm income: +${this.moneyGain} gold (Total: ${this.scene.gold})`);
+        }
         
     }
 
@@ -92,97 +100,186 @@ export default class Tower {
             );
 
             if (dist <= this.range) {
-                enemy.hp -= this.damage;
-                enemy.healthBar.setScale(enemy.hp / enemy.maxHp, 1);
-
-                    if (enemy.isFlying && this.scene.anims.exists('flying_hurt')) {
-                        enemy.play('flying_hurt');
-                        enemy.once('animationcomplete', () => {
-                            if (enemy.active) {
-                                // Check if currently moving by checking if there's a movement tween
-                                const hasTween = this.scene.tweens.getTweensOf(enemy).length > 0;
-                                if (hasTween && this.scene.anims.exists('flying_fly')) {
-                                    enemy.play('flying_fly');
-                                } else if (this.scene.anims.exists('flying_walk')) {
-                                    enemy.play('flying_walk');
-                                }
-                            }
-                        });
-                    }
-
-                // Tower flash effect on attack
-                this.flashTower();
-
-                // Create kill effect
-                this.createKillEffect(enemy.x, enemy.y);
-                
-                // Play attack sound
-                if (this.audioManager) {
-                    this.audioManager.playTowerAttack();
+                // Use projectile attack if tower has projectile, otherwise direct attack
+                if (this.projectileKey) {
+                    this.shootProjectile(enemy);
+                } else {
+                    this.directAttack(enemy);
                 }
-
-                // Knockback effect on enemy
-                const angle = Phaser.Math.Angle.Between(this.sprite.x, this.sprite.y, enemy.x, enemy.y);
-                const knockbackDistance = 20;
-                const knockbackX = Math.cos(angle) * knockbackDistance;
-                const knockbackY = Math.sin(angle) * knockbackDistance;
-
-                this.scene.tweens.add({
-                    targets: enemy,
-                    x: enemy.x + knockbackX,
-                    y: enemy.y + knockbackY,
-                    duration: 100,
-                    ease: 'Power2.easeOut',
-                    yoyo: true
-                });
-
-                // Damage popup
-                if (this.scene.effectsManager) {
-                    this.scene.effectsManager.createDamageNumber(enemy.x, enemy.y, this.damage);
-                }
-
-                if (enemy.hp <= 0) {
-                    // Play kill sound
-                    if (this.audioManager) {
-                        this.audioManager.playEnemyKilled();
-                    }
-
-                    // Award gold for kill
-                    const goldReward = Math.floor(this.scene.baseGoldReward * (1 + this.scene.currentWave * 0.5));
-                    this.scene.gold += goldReward;
-                    
-                    // Create floating text
-                    this.createFloatingText(enemy.x, enemy.y, `+${goldReward}`, '#FFD700');
-                    
-                    // Play gold collection sound
-                    if (this.audioManager) {
-                        this.audioManager.playGoldCollected();
-                    }
-                    
-                    const finalizeKill = () => {
-                        enemy.healthBar.destroy();
-                        enemy.destroy();
-                        this.scene.enemies.remove(enemy);
-                        this.scene.enemiesAlive--;
-                        console.log(`🎯 Enemy killed! Gold: +${goldReward} (Total: ${this.scene.gold})`);
-                        if (this.scene.effectsManager) {
-                            this.scene.effectsManager.confetti(enemy.x, enemy.y);
-                        }
-                    };
-
-                    if (enemy.isFlying && this.scene.anims.exists('flying_dead')) {
-                        enemy.play('flying_dead');
-                        enemy.once('animationcomplete', finalizeKill);
-                        // Fallback timeout in case animation never completes (500ms max)
-                        this.scene.time.delayedCall(500, () => {
-                            if (enemy.active) finalizeKill();
-                        });
-                    } else {
-                        finalizeKill();
-                    }
-                }
-
                 break;
+            }
+        }
+    }
+
+    /**
+     * Direct attack - damages single enemy immediately
+     */
+    directAttack(enemy) {
+        // Defensive check: validate enemy still exists and is active
+        if (!enemy || !enemy.active || !enemy.healthBar) {
+            return;
+        }
+
+        enemy.hp -= this.damage;
+        enemy.healthBar.setScale(Math.max(0, enemy.hp / enemy.maxHp), 1);
+
+        // Tower flash effect on attack
+        this.flashTower();
+        
+        // Play attack sound
+        if (this.audioManager) {
+            this.audioManager.playTowerAttack();
+        }
+
+        // Knockback effect on enemy
+        const angle = Phaser.Math.Angle.Between(this.sprite.x, this.sprite.y, enemy.x, enemy.y);
+        const knockbackDistance = 20;
+        const knockbackX = Math.cos(angle) * knockbackDistance;
+        const knockbackY = Math.sin(angle) * knockbackDistance;
+
+        this.scene.tweens.add({
+            targets: enemy,
+            x: enemy.x + knockbackX,
+            y: enemy.y + knockbackY,
+            duration: 100,
+            ease: 'Power2.easeOut',
+            yoyo: true
+        });
+
+        // Damage popup
+        if (this.scene.effectsManager) {
+            this.scene.effectsManager.createDamageNumber(enemy.x, enemy.y, this.damage);
+        }
+
+        this.finalizeEnemyDeath(enemy);
+    }
+
+    /**
+     * Projectile attack - shoots projectile that pierces through enemies
+     */
+    shootProjectile(targetEnemy) {
+        // Create projectile as a container with graphics inside
+        const projectile = this.scene.add.container(this.sprite.x, this.sprite.y);
+        // ensure the projectile is drawn above enemies so it's always visible
+        projectile.setDepth(5200);
+        
+        // Add circle graphics to the container (increased size)
+        const graphics = this.scene.make.graphics({ x: 0, y: 0, add: false });
+        graphics.fillStyle(0x3b82f6, 0.8); // Blue water fill
+        graphics.fillCircle(0, 0, 16); // 16px radius circle (was 8)
+        projectile.add(graphics);
+        // Store graphics reference for cleanup
+        projectile.graphicsObject = graphics;
+
+        // Calculate direction to target
+        const angle = Phaser.Math.Angle.Between(
+            this.sprite.x, this.sprite.y,
+            targetEnemy.x, targetEnemy.y
+        );
+
+        const speed = 400;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+
+        // Track enemies hit by this projectile
+        projectile.enemiesHit = [];
+
+        // Move projectile
+        this.scene.tweens.add({
+            targets: projectile,
+            x: { from: this.sprite.x, to: targetEnemy.x + vx * 0.5 },
+            y: { from: this.sprite.y, to: targetEnemy.y + vy * 0.5 },
+            duration: 500,
+            ease: 'Linear',
+            onUpdate: () => {
+                // Check collision with enemies
+                const enemies = this.scene.enemies.getChildren();
+                for (const enemy of enemies) {
+                    // Validate enemy is still active and not already hit
+                    if (!enemy?.active || projectile.enemiesHit.includes(enemy)) continue;
+
+                    const dist = Phaser.Math.Distance.Between(projectile.x, projectile.y, enemy.x, enemy.y);
+                    if (dist < 40) {
+                        // Hit enemy - validate healthBar exists
+                        if (!enemy.healthBar) continue;
+                        
+                        projectile.enemiesHit.push(enemy);
+                        enemy.hp -= this.damage;
+                        enemy.healthBar.setScale(Math.max(0, enemy.hp / enemy.maxHp), 1);
+
+                        // tiny water splash so you notice impacts from any direction
+                        const splash = this.scene.add.circle(enemy.x, enemy.y, 12, 0x3b82f6, 0.7).setDepth(5200);
+                        this.scene.tweens.add({
+                            targets: splash,
+                            alpha: 0,
+                            scale: 1.5,
+                            duration: 200,
+                            ease: 'Cubic.easeOut',
+                            onComplete: () => splash.destroy()
+                        });
+
+                        // Damage effect
+                        if (this.scene.effectsManager) {
+                            this.scene.effectsManager.createDamageNumber(enemy.x, enemy.y, this.damage);
+                        }
+
+                        this.finalizeEnemyDeath(enemy);
+                    }
+                }
+            },
+            onComplete: () => {
+                // Clean up graphics object before destroying container
+                if (projectile.graphicsObject) {
+                    projectile.graphicsObject.destroy();
+                }
+                projectile.destroy();
+            }
+        });
+
+        // Tower flash effect
+        this.flashTower();
+
+        // Play attack sound
+        if (this.audioManager) {
+            this.audioManager.playTowerAttack();
+        }
+    }
+
+    /**
+     * Handle enemy death (shared between direct and projectile attacks)
+     */
+    finalizeEnemyDeath(enemy) {
+        // Validate enemy still exists before processing
+        if (!enemy?.active) {
+            return;
+        }
+
+        if (enemy.hp <= 0) {
+            // Play kill sound
+            if (this.audioManager) {
+                this.audioManager.playEnemyKilled();
+            }
+
+            // Award gold for kill
+            const goldReward = Math.floor(this.scene.baseGoldReward * (1 + this.scene.currentWave * 0.5));
+            this.scene.gold += goldReward;
+            
+            // Create floating text
+            this.createFloatingText(enemy.x, enemy.y, `+${goldReward}`, '#FFD700');
+            
+            // Play gold collection sound
+            if (this.audioManager) {
+                this.audioManager.playGoldCollected();
+            }
+            
+            // Destroy enemy
+            if (enemy.healthBar) enemy.healthBar.destroy();
+            enemy.destroy();
+            this.scene.enemies.remove(enemy);
+            this.scene.enemiesAlive--;
+            console.log(`🎯 Enemy killed! Gold: +${goldReward} (Total: ${this.scene.gold})`);
+            if (this.scene.effectsManager) {
+                this.scene.effectsManager.confetti(enemy.x, enemy.y);
             }
         }
     }
@@ -276,18 +373,27 @@ export default class Tower {
     }
 
     upgrade() {
-        // Check if tower has reached max upgrade level (level represents total upgrades + 1)
-        if (this.level - 1 >= this.maxUpgradesPerType) {
+        // Check if tower has reached max upgrade level
+        if (this.level >= this.maxLevel) {
             console.log('❌ Tower has reached maximum upgrade level!');
             return false;
         }
         
         this.level++;
-        this.damage += 1;  // Power tower gets better damage
-        this.attackSpeed = Math.max(200, this.attackSpeed - 75);  // More aggressive improvement
         
-        // Visual feedback - much more visible increase in size
-        this.sprite.setScale(2 + this.level * 0.3);
+        // Different upgrade effects based on tower type
+        if (this.type === 'Farm') {
+            // Farm towers generate more gold with each upgrade (5 per level)
+            this.moneyGain += 5;  // Add 5 gold/sec per upgrade
+            console.log(`🌾 Farm upgraded! Now generates ${this.moneyGain} gold/sec`);
+        } else {
+            // Combat towers get more damage and attack speed
+            this.damage += 1;  // Increase damage per level
+            this.attackSpeed = Math.max(200, this.attackSpeed - 75);  // Increase attack speed
+        }
+        
+        // Visual feedback - increase in size
+        this.sprite.setScale(2 + this.level * 0.15);
         
         // Play upgrade sound
         if (this.audioManager) {
@@ -305,7 +411,45 @@ export default class Tower {
             });
         }
         
-        console.log(`🔧 Tower upgraded to level ${this.level}! Damage: ${this.damage.toFixed(1)}, Size: ${(2 + this.level * 0.3).toFixed(1)}x, Speed: ${this.attackSpeed}ms`);
+        console.log(`🔧 Tower upgraded to level ${this.level}/${this.maxLevel}! Damage: ${this.damage.toFixed(1)}, Speed: ${this.attackSpeed}ms`);
         return true;
+    }
+
+    /**
+     * Calculate the sell price of this tower (50% of total investment)
+     */
+    getSellPrice() {
+        const investedGold = this.baseCost + ((this.level - 1) * this.upgradeCost);
+        const sellPrice = Math.floor(investedGold * 0.5);
+        return sellPrice;
+    }
+
+    /**
+     * Sell/destroy the tower and return gold to player
+     */
+    sell() {
+        const sellPrice = this.getSellPrice();
+        
+        // Stop and remove any active animations on the sprite
+        if (this.sprite) {
+            if (this.sprite.anims && this.sprite.anims.isPlaying) {
+                this.sprite.anims.stop();
+            }
+            this.sprite.destroy();
+        }
+        
+        // Destroy visual components
+        if (this.rangeCircle) this.rangeCircle.destroy();
+        if (this.timer) this.timer.destroy();
+        
+        // Stop and destroy the farm income timer if it exists
+        if (this.incomeTimer) {
+            this.incomeTimer.destroy();
+            this.incomeTimer = null;
+        }
+        
+        console.log(`💰 Tower sold for ${sellPrice}G (Invested: ${this.baseCost + (this.level - 1) * this.upgradeCost}G)`);
+        
+        return sellPrice;
     }
 }

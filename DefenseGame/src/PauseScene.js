@@ -8,6 +8,9 @@ export default class PauseScene extends Phaser.Scene {
     create(data) {
         const { width, height } = this.scale;
 
+        // ensure we cleanup when the scene stops
+        this.events.on('shutdown', () => this.shutdownCleanup());
+
         // Get the paused scene from data passed during launch
         this.pausedSceneKey = data?.pausedScene || 'MainScene';
         console.log(`🔇 Pause scene opened for: ${this.pausedSceneKey}`);
@@ -82,9 +85,21 @@ export default class PauseScene extends Phaser.Scene {
         }, 0x90EE90);
 
         this.makeButton(width/2, height/2 + 80, 'EXIT TO MENU', () => {
+            // stop paused scene then close pause scene itself before returning to menu
             this.scene.stop(this.pausedSceneKey);
+            this.scene.stop();
             this.scene.start('MenuScene');
         }, 0xff6b6b);
+    }
+
+    shutdownCleanup() {
+        // remove any outstanding tweens or timers tied to this pause overlay
+        this.tweens.killAll();
+        this.time.removeAllEvents();
+        // input listeners on buttons are destroyed with their GameObjects, but ensure
+        this.input.off('pointerdown');
+        this.input.off('pointerover');
+        this.input.off('pointerout');
     }
 
     saveGame() {

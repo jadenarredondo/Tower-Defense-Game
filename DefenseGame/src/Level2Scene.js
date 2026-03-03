@@ -8,44 +8,48 @@ export default class Level2Scene extends Phaser.Scene {
     }
 
     preload() {
-        for (let i = 1; i <= 5; i++) this.load.image(`grass${i}`, `assets/tiles/grass${i}.png`);
-        this.load.image('stone_horizontal','assets/tiles/stone_horizontal.png');
-        this.load.image('stone_vertical','assets/tiles/stone_vertical.png');
-        this.load.image('corner_tl','assets/tiles/corner_tl.png');
-        this.load.image('corner_tr','assets/tiles/corner_tr.png');
-        this.load.image('corner_bl','assets/tiles/corner_bl.png');
-        this.load.image('corner_br','assets/tiles/corner_br.png');
+        for (let i = 1; i <= 5; i++) this.load.image(`grass${i}`, `assets/Tiles/grass${i}.png`);
+        this.load.image('stone_horizontal','assets/Tiles/stone_horizontal.png');
+        this.load.image('stone_vertical','assets/Tiles/stone_vertical.png');
+        this.load.image('corner_tl','assets/Tiles/corner_tl.png');
+        this.load.image('corner_tr','assets/Tiles/corner_tr.png');
+        this.load.image('corner_bl','assets/Tiles/corner_bl.png');
+        this.load.image('corner_br','assets/Tiles/corner_br.png');
 
-        this.load.image('tree1','assets/decorations/tree1.png');
-        this.load.image('tree2','assets/decorations/tree2.png');
-        this.load.image('rock1','assets/decorations/rock1.png');
-        this.load.image('rock2','assets/decorations/rock2.png');
-        this.load.image('temple1','assets/decorations/ruined_temple1.png');
-        this.load.image('temple2','assets/decorations/ruined_temple2.png');
-        this.load.image('temple3','assets/decorations/ruined_temple3.png');
+        this.load.image('tree1','assets/Decorations/tree1.png');
+        this.load.image('tree2','assets/Decorations/tree2.png');
+        this.load.image('rock1','assets/Decorations/rock1.png');
+        this.load.image('rock2','assets/Decorations/rock2.png');
+        this.load.image('temple1','assets/Decorations/ruined_temple1.png');
+        this.load.image('temple2','assets/Decorations/ruined_temple2.png');
+        this.load.image('temple3','assets/Decorations/ruined_temple3.png');
 
-        this.load.image('enemy','assets/decorations/enemy.png');
-        // 'ghost' enemy is actually the flying creature, handled as animation not static image
+        this.load.image('enemy','assets/Enemies/enemy.png');
+        // remove any previously cached flying textures so we can treat them as spritesheets
+        ['flying_walk','flying_fly','flying_hurt','flying_dead'].forEach(key => {
+            if (this.textures.exists(key)) this.textures.remove(key);
+        });
+        // Load flying enemy spritesheets with correct frame dimensions
+        this.load.spritesheet('flying_walk','assets/Enemies/flying_walk.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('flying_fly','assets/Enemies/flying_fly.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('flying_hurt','assets/Enemies/flying_hurt.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('flying_dead','assets/Enemies/flying_dead.png', { frameWidth: 128, frameHeight: 128 });
+        // Flying creatures are spritesheets with animations
         this.load.on('complete', () => {
             if (this.textures.exists('enemy'))
                 this.textures.get('enemy').setFilter(Phaser.Textures.FilterMode.NEAREST);
         });
 
-        this.load.spritesheet('tower','assets/tower/tower.png',{ frameWidth: 64, frameHeight: 64 });
-        this.load.on('complete', () => {
-            this.textures.get('tower').setFilter(Phaser.Textures.FilterMode.NEAREST);
-        });
+        // Load tower spritesheets - 64x64 per frame
+        this.load.spritesheet('tower_izanami','assets/Tower/Izanami.png', { frameWidth: 64, frameHeight: 64 });
+        this.load.spritesheet('tower_susanoo','assets/Tower/Susanoo.png', { frameWidth: 64, frameHeight: 64 });
+        this.load.image('tower_farm','assets/Tower/shrine_farm.png');
+        // TODO: Load susanoo_water spritesheet when asset is added
 
-        // flying enemy animations – each animation is its own 4‑frame spritesheet
-        const flyingKeys = ['flying_walk','flying_fly','flying_hurt','flying_dead'];
-        flyingKeys.forEach(key => {
-            this.load.spritesheet(key, `assets/decorations/${key}.png`, { frameWidth: 128, frameHeight: 128 });
-        });
         this.load.on('complete', () => {
-            flyingKeys.forEach(key => {
-                if (this.textures.exists(key)) {
+            ['tower_izanami', 'tower_susanoo', 'tower_farm'].forEach(key => {
+                if (this.textures.exists(key))
                     this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
-                }
             });
         });
     }
@@ -56,37 +60,37 @@ export default class Level2Scene extends Phaser.Scene {
         this.audioManager.playBackgroundMusic();
         this.setupAudioControls();
 
-        // create flying enemy animations (only needs to be done once)
-        if (!this.anims.exists('flying_walk')) {
-            const flyingKeys = ['flying_walk', 'flying_fly', 'flying_hurt', 'flying_dead'];
-            console.log('📋 Checking flying textures:', flyingKeys.map(k => k + ': ' + this.textures.exists(k)));
-            
-            this.anims.create({
-                key: 'flying_walk',
-                frames: this.anims.generateFrameNumbers('flying_walk', { start: 0, end: 6 }),
-                frameRate: 8,
-                repeat: -1
-            });
-            this.anims.create({
-                key: 'flying_fly',
-                frames: this.anims.generateFrameNumbers('flying_fly', { start: 0, end: 5 }),
-                frameRate: 8,
-                repeat: -1
-            });
-            this.anims.create({
-                key: 'flying_hurt',
-                frames: this.anims.generateFrameNumbers('flying_hurt', { start: 0, end: 2 }),
-                frameRate: 8,
-                repeat: 0
-            });
-            this.anims.create({
-                key: 'flying_dead',
-                frames: this.anims.generateFrameNumbers('flying_dead', { start: 0, end: 4 }),
-                frameRate: 8,
-                repeat: 0
-            });
-            console.log('✅ Flying animations created');
-        }
+        // Create (or recreate) flying enemy animations from spritesheets
+        // remove any stale animation definitions first so they point to the current texture
+        ['flying_walk','flying_fly','flying_hurt','flying_dead'].forEach(key => {
+            if (this.anims.exists(key)) {
+                this.anims.remove(key);
+            }
+        });
+        this.anims.create({
+            key: 'flying_walk',
+            frames: this.anims.generateFrameNumbers('flying_walk', { start: 0, end: 6 }),
+            frameRate: 8,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'flying_fly',
+            frames: this.anims.generateFrameNumbers('flying_fly', { start: 0, end: 5 }),
+            frameRate: 10,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'flying_hurt',
+            frames: this.anims.generateFrameNumbers('flying_hurt', { start: 0, end: 2 }),
+            frameRate: 6,
+            repeat: 0
+        });
+        this.anims.create({
+            key: 'flying_dead',
+            frames: this.anims.generateFrameNumbers('flying_dead', { start: 0, end: 5 }),
+            frameRate: 8,
+            repeat: 0
+        });
         
         // ---------- CONFIG ----------
         this.tileSize = 80;
@@ -120,6 +124,9 @@ export default class Level2Scene extends Phaser.Scene {
         this.keyD = this.input.keyboard.addKey('D');
         this.cameraSpeed = 10;
 
+        // debug toggle for verbose logging
+        this.debug = false;
+
         // ---------- PLAYER ----------
         this.playerHealth = 20;
         this.maxPlayerHealth = 20;
@@ -132,15 +139,14 @@ export default class Level2Scene extends Phaser.Scene {
 
         // Tower types definition
         this.towerTypes = {
-            basic: { name: 'Basic', cost: 50, damage: 1, range: 220, attackSpeed: 500, attackSpeedMult: 1, scaleMult: 1, description: 'Standard tower' },
-            power: { name: 'Power', cost: 100, damage: 4, range: 200, attackSpeed: 350, attackSpeedMult: 0.7, scaleMult: 1.5, description: 'High damage output' },
-            sniper: { name: 'Sniper', cost: 80, damage: 2.5, range: 300, attackSpeed: 800, attackSpeedMult: 1.6, scaleMult: 1, description: 'Long range specialist' },
-            farm: {name: 'Farm', cost: 50, damage: 0, range: 10, attackSpeed: 1000, attackSpeedMult: 1.6, scaleMult: 1, moneyGain: 50, description: 'Income generator'}
+            basic: { name: 'Izanami', image: 'tower_izanami', cost: 50, damage: 1, range: 220, attackSpeed: 500, attackSpeedMult: 1, scaleMult: 1, description: 'Reliable tower', frames: 15 },
+            projectile: { name: 'Susanoo', image: 'tower_susanoo', cost: 100, damage: 4, range: 200, attackSpeed: 350, attackSpeedMult: 0.7, scaleMult: 1.5, description: 'Water cannon', frames: 15, projectile: 'susanoo_water' },
+            farm: { name: 'Farm', image: 'tower_farm', cost: 50, damage: 0, range: 10, attackSpeed: 1000, attackSpeedMult: 1.6, scaleMult: 1, moneyGain: 5, description: 'Income generator', frames: 1 }
         };
         this.selectedTowerType = 'basic';
 
-        // Farm/Gold generation system
-        this.farmGoldPerSecond = 3;
+        // Farm/Gold generation system (passive income from farm towers)
+        this.farmGoldPerSecond = 5;
         this.lastFarmTick = 0;
         this.farmTickInterval = 1000; // 1 second
 
@@ -299,9 +305,9 @@ export default class Level2Scene extends Phaser.Scene {
 
             if (existingTower) {
                 if (this.pendingUpgrade) {
-                    // apply tool upgrade
+                    // apply tool upgrade (rarely used because tools are hidden)
                     const costMap = { damage: 75, range: 60, speed: 80 };
-                    this.upgradeTower(existingTower, this.pendingUpgrade, costMap[this.pendingUpgrade]);
+                    this.upgradeTowerTool(existingTower, this.pendingUpgrade, costMap[this.pendingUpgrade]);
                     this.pendingUpgrade = null;
                     document.querySelectorAll('.upgrade-tool-btn').forEach(b => b.classList.remove('active'));
                     this.hideTowerUpgradeMenu();
@@ -317,7 +323,7 @@ export default class Level2Scene extends Phaser.Scene {
                     this.towers.push(tower);
                     this.gold -= towerConfig.cost;
                     this.audioManager.playTowerPlace();
-                    console.log(`🏗️ Tower placed! Cost: -${towerConfig.cost} (Gold: ${this.gold})`);
+                    if (this.debug) console.log(`🏗️ Tower placed! Cost: -${towerConfig.cost} (Gold: ${this.gold})`);
                     this.selectedTower = null;
                     this.hideTowerUpgradeMenu();
                 } else {
@@ -344,6 +350,66 @@ export default class Level2Scene extends Phaser.Scene {
             if (uiBar) uiBar.style.display = 'none';
             if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
             if (this.audioManager) this.audioManager.stopBackgroundMusic();
+            
+            // Reset time scale to 1x before leaving scene
+            this.time.timeScale = 1;
+
+            // remove any remaining timers or delayed calls
+            if (this.waveTimer) {
+                this.waveTimer.remove(false);
+                this.waveTimer = null;
+            }
+            this.time.removeAllEvents();
+
+            // clear enemy group (guard against repeated shutdown)
+            if (this._shutdownHandled) {
+                return; // already cleaned up
+            }
+            this._shutdownHandled = true;
+
+            if (this.enemies && this.enemies.isActive?.() !== false && typeof this.enemies.getChildren === 'function') {
+                try {
+                    const children = this.enemies.getChildren();
+                    if (Array.isArray(children)) {
+                        children.forEach(e => {
+                            if (e.healthBar) e.healthBar.destroy();
+                            e.destroy();
+                        });
+                    }
+                    this.enemies.clear(true);
+                } catch (e) {
+                    console.warn('Error clearing enemies:', e);
+                }
+            }
+            // null out reference to avoid future calls
+            this.enemies = null;
+
+            // Remove audio event listeners
+            const muteBtn = document.getElementById('mute-btn');
+            const volumeSlider = document.getElementById('volume-slider');
+            if (muteBtn && this.muteClickHandler) {
+                muteBtn.removeEventListener('click', this.muteClickHandler);
+            }
+            if (volumeSlider && this.volumeChangeHandler) {
+                volumeSlider.removeEventListener('input', this.volumeChangeHandler);
+            }
+            
+            // Remove speed button listener
+            const topBar = document.getElementById('top-bar');
+            if (topBar && this.speedButtonHandler) {
+                topBar.removeEventListener('click', this.speedButtonHandler);
+            }
+
+            // remove input listeners to avoid duplicates on restart
+            this.input.off('pointerdown');
+            this.input.off('pointermove');
+            this.input.off('wheel');
+            if (this.input.keyboard) {
+                this.input.keyboard.off('keydown-ESC');
+                this.input.keyboard.off('keydown-ONE');
+                this.input.keyboard.off('keydown-TWO');
+                this.input.keyboard.off('keydown-THREE');
+            }
         });
         this.events.on('sleep', () => {
             if (uiBar) uiBar.style.display = 'none';
@@ -364,8 +430,18 @@ export default class Level2Scene extends Phaser.Scene {
         // Farm/Gold generation tick
         const now = this.time.now;
         if (now - this.lastFarmTick >= this.farmTickInterval) {
-            this.gold += this.farmGoldPerSecond;
-            console.log(`🌾 Farm tick: +${this.farmGoldPerSecond} gold (Total: ${this.gold})`);
+            // Sum up gold from all farm towers
+            let totalFarmGold = 0;
+            for (const tower of this.towers) {
+                if (tower.type === 'Farm') {
+                    totalFarmGold += tower.moneyGain;
+                }
+            }
+            
+            this.gold += totalFarmGold;
+            if (totalFarmGold > 0 && this.debug) {
+                console.log(`🌾 Farm tick: +${totalFarmGold} gold (Total: ${this.gold})`);
+            }
             this.lastFarmTick = now;
             this.updateTowerSelectionUI();
         }
@@ -398,24 +474,27 @@ export default class Level2Scene extends Phaser.Scene {
         const scene = this;
         const topBar = document.getElementById('top-bar');
         
+        // Store handler reference for cleanup on shutdown
+        this.speedButtonHandler = (e) => {
+            if (e.target.classList.contains('speed-btn')) {
+                const speed = parseFloat(e.target.getAttribute('data-speed'));
+                console.log(`⚡ SPEED BUTTON CLICKED: ${speed}x`);
+                scene.time.timeScale = speed;
+                if (scene.audioManager) scene.audioManager.playClick();
+                console.log(`✓ Game speed changed to: ${speed}x`);
+                
+                // Update active state
+                document.querySelectorAll('.speed-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                e.target.classList.add('active');
+            }
+        };
+        
         // Use event delegation on the top-bar
         if (topBar) {
             console.log('📍 Setting up speed buttons with delegation...');
-            topBar.addEventListener('click', (e) => {
-                if (e.target.classList.contains('speed-btn')) {
-                    const speed = parseFloat(e.target.getAttribute('data-speed'));
-                    console.log(`⚡ SPEED BUTTON CLICKED: ${speed}x`);
-                    scene.time.timeScale = speed;
-                    if (scene.audioManager) scene.audioManager.playClick();
-                    console.log(`✓ Game speed changed to: ${speed}x`);
-                    
-                    // Update active state
-                    document.querySelectorAll('.speed-btn').forEach(btn => {
-                        btn.classList.remove('active');
-                    });
-                    e.target.classList.add('active');
-                }
-            });
+            topBar.addEventListener('click', this.speedButtonHandler);
         } else {
             console.warn('⚠️ TOP-BAR NOT FOUND');
         }
@@ -458,32 +537,9 @@ export default class Level2Scene extends Phaser.Scene {
         if (!toolsContainer) {
             toolsContainer = document.createElement('div');
             toolsContainer.id = 'upgrade-tools';
-            toolsContainer.style.cssText = 'display:flex; gap:8px; margin-top:10px; padding:8px; align-items:center;';
+            toolsContainer.style.cssText = 'display:none;'; // Hide upgrade tools - use unified level system instead
             selectionPanel.appendChild(toolsContainer);
         }
-        toolsContainer.innerHTML = '';
-
-        const upgrades = [
-            { type: 'damage', label: 'Boost Damage', cost: 75 },
-            { type: 'range', label: 'Extend Range', cost: 60 },
-            { type: 'speed', label: 'Faster Fire', cost: 80 }
-        ];
-
-        upgrades.forEach(u => {
-            const btn = document.createElement('button');
-            btn.className = 'upgrade-tool-btn';
-            btn.textContent = `${u.label} (${u.cost}G)`;
-            btn.style.cssText = 'padding:4px 8px; font-size:12px;';
-            btn.addEventListener('click', () => {
-                if (this.gold >= u.cost) {
-                    this.pendingUpgrade = u.type;
-                    document.querySelectorAll('.upgrade-tool-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    if (this.audioManager) this.audioManager.playClick();
-                }
-            });
-            toolsContainer.appendChild(btn);
-        });
 
         // Update UI visibility
         this.updateTowerSelectionUI();
@@ -619,7 +675,7 @@ export default class Level2Scene extends Phaser.Scene {
         }
 
         this.currentWave++;
-        console.log(`\n🌊 STARTING WAVE ${this.currentWave}/${this.maxWaves}`);
+        if (this.debug) console.log(`\n🌊 STARTING WAVE ${this.currentWave}/${this.maxWaves}`);
         if (this.audioManager) this.audioManager.playWaveStart();
         this.waveInProgress = true;
         this.waveSpawningComplete = false;
@@ -639,6 +695,9 @@ export default class Level2Scene extends Phaser.Scene {
         const spawnCount = waveCounts[this.currentWave-1] || 8;
 
         // Spawn enemies sequentially (1.5 second delay between spawns)
+        if (this.waveTimer) {
+            this.waveTimer.remove(false);
+        }
         this.waveTimer = this.time.addEvent({
             delay: 1200,
             repeat: spawnCount - 1,
@@ -689,6 +748,20 @@ export default class Level2Scene extends Phaser.Scene {
     showTowerUpgradeMenu(tower) {
         this.hideTowerUpgradeMenu();
         
+        // clicking outside the menu should close it, so create a transparent overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'tower-upgrade-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 19999;
+        `;
+        overlay.addEventListener('click', () => this.hideTowerUpgradeMenu());
+        document.body.appendChild(overlay);
+
         const menu = document.createElement('div');
         menu.id = 'tower-upgrade-menu';
         menu.style.cssText = `
@@ -706,9 +779,11 @@ export default class Level2Scene extends Phaser.Scene {
             backdrop-filter: blur(20px);
             font-family: Arial, sans-serif;
         `;
+        // prevent clicks inside menu from closing
+        menu.addEventListener('click', e => e.stopPropagation());
 
         const title = document.createElement('h2');
-        title.textContent = `${tower.type} Tower - Level ${tower.level}`;
+        title.textContent = `${tower.type} Tower`;
         title.style.cssText = `
             color: #64d5ff;
             margin: 0 0 20px 0;
@@ -716,6 +791,42 @@ export default class Level2Scene extends Phaser.Scene {
             text-shadow: 0 0 10px rgba(100, 213, 255, 0.5);
         `;
         menu.appendChild(title);
+
+        // Level progress bar
+        const levelProgress = document.createElement('div');
+        levelProgress.style.cssText = `
+            background: rgba(124, 58, 237, 0.2);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(167, 139, 250, 0.3);
+        `;
+
+        const levelText = document.createElement('p');
+        levelText.style.cssText = `color: #a8daff; margin: 0 0 10px 0; font-weight: bold;`;
+        levelText.textContent = `Level: ${tower.level} / ${tower.maxLevel}`;
+        levelProgress.appendChild(levelText);
+
+        const progressBar = document.createElement('div');
+        progressBar.style.cssText = `
+            width: 100%;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #7c3aed;
+        `;
+        const progressFill = document.createElement('div');
+        const progressPercent = (tower.level / tower.maxLevel) * 100;
+        progressFill.style.cssText = `
+            width: ${progressPercent}%;
+            height: 100%;
+            background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%);
+            transition: width 0.3s ease;
+        `;
+        progressBar.appendChild(progressFill);
+        levelProgress.appendChild(progressBar);
+        menu.appendChild(levelProgress);
 
         // Stats display
         const stats = document.createElement('div');
@@ -726,95 +837,98 @@ export default class Level2Scene extends Phaser.Scene {
             margin-bottom: 20px;
             border: 1px solid rgba(167, 139, 250, 0.3);
         `;
-        stats.innerHTML = `
-            <p style="color: #a8daff; margin: 5px 0;"><strong>Damage:</strong> ${tower.damage.toFixed(1)}</p>
-            <p style="color: #a8daff; margin: 5px 0;"><strong>Range:</strong> ${tower.range}</p>
-            <p style="color: #a8daff; margin: 5px 0;"><strong>Attack Speed:</strong> ${tower.attackSpeed}ms</p>
-        `;
+        
+        if (tower.type === 'Farm') {
+            stats.innerHTML = `
+                <p style="color: #fbbf24; margin: 5px 0;"><strong>Gold/Second:</strong> ${tower.moneyGain}</p>
+            `;
+        } else {
+            stats.innerHTML = `
+                <p style="color: #a8daff; margin: 5px 0;"><strong>Damage:</strong> ${tower.damage.toFixed(1)}</p>
+                <p style="color: #a8daff; margin: 5px 0;"><strong>Attack Speed:</strong> ${tower.attackSpeed}ms</p>
+                <p style="color: #a8daff; margin: 5px 0;"><strong>Range:</strong> ${tower.range}</p>
+            `;
+        }
         menu.appendChild(stats);
 
-        // Upgrade buttons
-        const upgradesDiv = document.createElement('div');
-        upgradesDiv.style.cssText = `
+        // Buttons container
+        const buttonsDiv = document.createElement('div');
+        buttonsDiv.style.cssText = `
             display: flex;
-            flex-direction: column;
             gap: 12px;
             margin-bottom: 20px;
         `;
 
-        const upgrades = [
-            { type: 'damage', name: '⚡ Boost Damage +2', cost: 75 },
-            { type: 'range', name: '📍 Extend Range +50', cost: 60 },
-            { type: 'speed', name: '⏱️ Faster Fire Speed', cost: 80 }
-        ];
+        // Upgrade button
+        const upgradeBtn = document.createElement('button');
+        const canUpgrade = tower.level < tower.maxLevel && this.gold >= tower.upgradeCost;
+        const upgradeCost = tower.upgradeCost;
+        upgradeBtn.textContent = canUpgrade 
+            ? `⬆️ Upgrade (${upgradeCost}G)` 
+            : (tower.level >= tower.maxLevel ? '⭐ MAX LEVEL' : `❌ Upgrade (${upgradeCost}G)`);
+        upgradeBtn.style.cssText = `
+            flex: 1;
+            padding: 12px 16px;
+            background: ${canUpgrade ? 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' : 'rgba(100, 100, 100, 0.5)'};
+            color: ${canUpgrade ? '#fff' : '#888'};
+            border: 2px solid ${canUpgrade ? '#a78bfa' : '#666'};
+            border-radius: 8px;
+            cursor: ${canUpgrade ? 'pointer' : 'not-allowed'};
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            opacity: ${canUpgrade ? '1' : '0.6'};
+        `;
+        if (canUpgrade) {
+            upgradeBtn.addEventListener('mouseover', () => {
+                upgradeBtn.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
+                upgradeBtn.style.boxShadow = '0 0 15px rgba(124, 58, 237, 0.6)';
+            });
+            upgradeBtn.addEventListener('mouseout', () => {
+                upgradeBtn.style.background = 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)';
+                upgradeBtn.style.boxShadow = 'none';
+            });
+            upgradeBtn.addEventListener('click', () => {
+                this.upgradeTowerLevel(tower, upgradeCost);
+                this.showTowerUpgradeMenu(tower);
+            });
+        }
+        buttonsDiv.appendChild(upgradeBtn);
 
-        upgrades.forEach(upgrade => {
-            const btn = document.createElement('button');
-            const canAfford = this.gold >= upgrade.cost;
-            btn.textContent = `${upgrade.name} (${upgrade.cost}G)`;
-            btn.style.cssText = `
-                padding: 12px 16px;
-                background: ${canAfford ? '#ffffff' : '#cccccc'};
-                color: ${canAfford ? '#000' : '#666'};
-                border: 2px solid ${canAfford ? '#cccccc' : '#999999'};
-                border-radius: 8px;
-                cursor: ${canAfford ? 'pointer' : 'not-allowed'};
-                font-size: 14px;
-                font-weight: bold;
-                transition: all 0.2s ease;
-                opacity: ${canAfford ? '1' : '0.6'};
-            `;
-
-            if (canAfford) {
-                btn.addEventListener('mouseover', () => {
-                    btn.style.background = '#f0f0f0';
-                    btn.style.boxShadow = '0 0 8px rgba(255, 255, 255, 0.4)';
-                });
-                btn.addEventListener('mouseout', () => {
-                    btn.style.background = '#ffffff';
-                    btn.style.boxShadow = 'none';
-                });
-
-                btn.addEventListener('click', () => {
-                    this.upgradeTower(tower, upgrade.type, upgrade.cost);
-                    this.hideTowerUpgradeMenu();
-                });
-            }
-
-            upgradesDiv.appendChild(btn);
-        });
-
-        menu.appendChild(upgradesDiv);
-
-        // Close button
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = 'CLOSE (ESC)';
-        closeBtn.style.cssText = `
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-            color: white;
-            border: 2px solid #818cf8;
+        // Sell button
+        const sellBtn = document.createElement('button');
+        const sellPrice = tower.getSellPrice();
+        sellBtn.textContent = `💰 Sell (${sellPrice}G)`;
+        sellBtn.style.cssText = `
+            flex: 1;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            color: #fff;
+            border: 2px solid #f59e0b;
             border-radius: 8px;
             cursor: pointer;
-            font-weight: bold;
             font-size: 14px;
+            font-weight: bold;
             transition: all 0.2s ease;
         `;
-        closeBtn.addEventListener('click', () => this.hideTowerUpgradeMenu());
-        closeBtn.addEventListener('mouseover', () => {
-            closeBtn.style.background = 'linear-gradient(135deg, #818cf8 0%, #6366f1 100%)';
-            closeBtn.style.boxShadow = '0 0 15px rgba(99, 102, 241, 0.6)';
+        sellBtn.addEventListener('mouseover', () => {
+            sellBtn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+            sellBtn.style.boxShadow = '0 0 15px rgba(245, 158, 11, 0.6)';
         });
-        closeBtn.addEventListener('mouseout', () => {
-            closeBtn.style.background = 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)';
-            closeBtn.style.boxShadow = 'none';
+        sellBtn.addEventListener('mouseout', () => {
+            sellBtn.style.background = 'linear-gradient(135deg, #d97706 0%, #b45309 100%)';
+            sellBtn.style.boxShadow = 'none';
         });
-        menu.appendChild(closeBtn);
+        sellBtn.addEventListener('click', () => {
+            this.sellTower(tower);
+            this.hideTowerUpgradeMenu();
+        });
+        buttonsDiv.appendChild(sellBtn);
+
+        menu.appendChild(buttonsDiv);
 
         document.body.appendChild(menu);
 
-        // Close on ESC
         const closeHandler = (e) => {
             if (e.key === 'Escape') {
                 this.hideTowerUpgradeMenu();
@@ -829,10 +943,15 @@ export default class Level2Scene extends Phaser.Scene {
         if (menu) {
             menu.remove();
         }
+        const overlay = document.getElementById('tower-upgrade-overlay');
+        if (overlay) {
+            overlay.remove();
+        }
         this.selectedTower = null;
     }
 
-    upgradeTower(tower, upgradeType, cost) {
+    // renamed to avoid conflict with level-up handling
+    upgradeTowerTool(tower, upgradeType, cost) {
         if (this.gold < cost) {
             console.log(`❌ Not enough gold!`);
             return;
@@ -871,6 +990,40 @@ export default class Level2Scene extends Phaser.Scene {
         if (this.audioManager) this.audioManager.playUpgrade();
     }
 
+    // level-up a tower (called from upgrade menu)
+    upgradeTowerLevel(tower, cost) {
+        if (this.gold < cost) {
+            console.log(`❌ Not enough gold! Need ${cost}, have ${this.gold}`);
+            return;
+        }
+
+        if (tower.upgrade()) {
+            this.gold -= cost;
+            console.log(`✨ Tower upgraded! Gold: -${cost} (Total: ${this.gold})`);
+            if (this.audioManager) this.audioManager.playUpgrade();
+            if (this.effectsManager) {
+                this.effectsManager.flash(200, 0x00ff00, 0.3);
+            }
+            this.updateUI();
+            this.updateTowerSelectionUI();
+        } else {
+            console.log(`❌ Tower is already at maximum level!`);
+        }
+    }
+
+    sellTower(tower) {
+        const sellPrice = tower.sell();
+        this.gold += sellPrice;
+        const index = this.towers.indexOf(tower);
+        if (index > -1) {
+            this.towers.splice(index, 1);
+        }
+        console.log(`💰 Tower sold for ${sellPrice}G (Total gold: ${this.gold})`);
+        if (this.audioManager) this.audioManager.playClick();
+        this.updateUI();
+        this.updateTowerSelectionUI();
+    }
+
     spawnEnemy() {
         const offset = this.tileSize * 0.3;
         // decide normal vs ghost – ghost is the flying creature
@@ -887,11 +1040,10 @@ export default class Level2Scene extends Phaser.Scene {
         enemy.isFlying = isGhost && this.textures.exists('flying_walk');
         enemy.isGhost = isGhost;
         
+        // Play walking animation if flying
         if (enemy.isFlying && this.anims.exists('flying_walk')) {
             console.log('🐉 Flying enemy spawned with walk animation');
             enemy.play('flying_walk');
-        } else if (enemy.isFlying) {
-            console.log('⚠️ Flying texture exists but animation missing! Texture exists:', this.textures.exists('flying_walk'), 'Animation exists:', this.anims.exists('flying_walk'));
         }
 
         // adjust stats
@@ -913,7 +1065,6 @@ export default class Level2Scene extends Phaser.Scene {
         if(enemy.pathIndex>=this.path.length-1) return;
         
         if (enemy.isFlying && this.anims.exists('flying_fly')) {
-            // only start flying animation if not already playing
             const current = enemy.anims.currentAnim ? enemy.anims.currentAnim.key : null;
             if (current !== 'flying_fly') {
                 enemy.play('flying_fly');
@@ -979,19 +1130,24 @@ export default class Level2Scene extends Phaser.Scene {
         const muteBtn = document.getElementById('mute-btn');
         const volumeSlider = document.getElementById('volume-slider');
 
+        // Store references for cleanup on shutdown
+        this.muteClickHandler = () => {
+            const isMuted = this.audioManager.toggleMute();
+            muteBtn.textContent = isMuted ? '🔇' : '🔊';
+            this.audioManager.playClick();
+        };
+        
+        this.volumeChangeHandler = (e) => {
+            const volume = parseFloat(e.target.value) / 100;
+            this.audioManager.setMasterVolume(volume);
+        };
+
         if (muteBtn) {
-            muteBtn.addEventListener('click', () => {
-                const isMuted = this.audioManager.toggleMute();
-                muteBtn.textContent = isMuted ? '🔇' : '🔊';
-                this.audioManager.playClick();
-            });
+            muteBtn.addEventListener('click', this.muteClickHandler);
         }
 
         if (volumeSlider) {
-            volumeSlider.addEventListener('input', (e) => {
-                const volume = parseFloat(e.target.value) / 100;
-                this.audioManager.setMasterVolume(volume);
-            });
+            volumeSlider.addEventListener('input', this.volumeChangeHandler);
         }
     }
 
@@ -1007,7 +1163,7 @@ export default class Level2Scene extends Phaser.Scene {
 
         if (useFlying && this.textures.exists('flying_walk')) {
             boss.isFlying = true;
-            boss.play('flying_walk');
+            // Static image, no animation
         }
 
         boss.hp = 200;

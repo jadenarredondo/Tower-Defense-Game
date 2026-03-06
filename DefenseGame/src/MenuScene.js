@@ -62,8 +62,10 @@ export default class MenuScene extends Phaser.Scene {
             duration: 2000,
             yoyo: true,
             repeat: -1,
-            ease: 'Sine.easeInOut'
+            ease: 'Sine.easeInOut',
+            useFrames: false
         });
+        
 
         // Subtitle image closer to the title but still separated
         this.add.image(width / 2, height / 4 + 90, 'subtitle').setOrigin(0.5);
@@ -87,7 +89,7 @@ export default class MenuScene extends Phaser.Scene {
         const baseY = height / 2 + 20;  // bring button block very close to subtitle
         const offsetX = 220; // reduce horizontal separation slightly
         let scrollOffset = 0;
-        // compute maximum y position for scrolling (4 buttons + exit + tagline)
+        // compute maximum y position for scrolling (5 buttons now: 2 rows of 2, then exit)
         const lastBtnIndex = buttonData.length - 1;
         const maxRows = 3; // two rows for first 4, one for exit
         const maxYPos = baseY + (maxRows) * buttonSpacing;
@@ -175,7 +177,8 @@ export default class MenuScene extends Phaser.Scene {
                     scaleX: 1.08,
                     scaleY: 1.08,
                     duration: 200,
-                    ease: 'Power2'
+                    ease: 'Power2',
+                    useFrames: false
                 });
             };
 
@@ -192,7 +195,8 @@ export default class MenuScene extends Phaser.Scene {
                     scaleX: 1,
                     scaleY: 1,
                     duration: 200,
-                    ease: 'Power2'
+                    ease: 'Power2',
+                    useFrames: false
                 });
             };
 
@@ -221,7 +225,8 @@ export default class MenuScene extends Phaser.Scene {
                     scaleX: 0.95,
                     scaleY: 0.95,
                     duration: 100,
-                    ease: 'Power2'
+                    ease: 'Power2',
+                    useFrames: false
                 });
                 this.time.delayedCall(150, () => b.action());
             };

@@ -28,6 +28,12 @@ export default class Tower {
             .setScale(2 * scale)
             .setDepth(5200);
 
+        // draw a placement base underneath the tower so it rests on the marker
+        this.baseSprite = scene.add.image(x, y, 'tower_placement')
+            .setOrigin(0.5)
+            .setDisplaySize(scene.tileSize * 1.2, scene.tileSize * 1.2)
+            .setDepth(5199); // just below tower sprite
+
         // Create animation if tower has frames
         if (this.frameCount > 1) {
             const animKey = `${this.imageKey}_idle`;
@@ -73,7 +79,7 @@ export default class Tower {
     income() {
         this.scene.gold += this.moneyGain;
         if (this.scene.debug) {
-            console.log(`🌾 Farm income: +${this.moneyGain} gold (Total: ${this.scene.gold})`);
+            if (this.scene.debug) console.log(`🌾 Farm income: +${this.moneyGain} gold (Total: ${this.scene.gold})`);
         }
         
     }
@@ -143,6 +149,7 @@ export default class Tower {
             y: enemy.y + knockbackY,
             duration: 100,
             ease: 'Power2.easeOut',
+                        useFrames: false,
             yoyo: true
         });
 
@@ -191,6 +198,7 @@ export default class Tower {
             y: { from: this.sprite.y, to: targetEnemy.y + vy * 0.5 },
             duration: 500,
             ease: 'Linear',
+                        useFrames: false,
             onUpdate: () => {
                 // Check collision with enemies
                 const enemies = this.scene.enemies.getChildren();
@@ -215,6 +223,7 @@ export default class Tower {
                             scale: 1.5,
                             duration: 200,
                             ease: 'Cubic.easeOut',
+                                                        useFrames: false,
                             onComplete: () => splash.destroy()
                         });
 
@@ -249,12 +258,16 @@ export default class Tower {
      * Handle enemy death (shared between direct and projectile attacks)
      */
     finalizeEnemyDeath(enemy) {
-        // Validate enemy still exists before processing
-        if (!enemy?.active) {
+        // Validate enemy still exists and is active before processing
+        if (!enemy || !enemy.active || enemy.destroyed || enemy._exited) {
             return;
         }
 
         if (enemy.hp <= 0) {
+            // Immediately mark as exited to prevent double-processing
+            enemy._exited = true;
+            enemy.setActive(false);
+            
             // Play kill sound
             if (this.audioManager) {
                 this.audioManager.playEnemyKilled();
@@ -273,15 +286,83 @@ export default class Tower {
             }
             
             // Destroy enemy
-            if (enemy.healthBar) enemy.healthBar.destroy();
-            enemy.destroy();
-            this.scene.enemies.remove(enemy);
+            if (enemy.healthBar) {
+                try { enemy.healthBar.destroy(); } catch(e) {}
+            }
+            try { enemy.destroy(); } catch(e) {}
+            if (this.scene.enemies) {
+                this.scene.enemies.remove(enemy);
+            }
             this.scene.enemiesAlive--;
-            console.log(`🎯 Enemy killed! Gold: +${goldReward} (Total: ${this.scene.gold})`);
+            // CRITICAL FIX: Also decrement waveEnemyCount when enemy is killed
+            if (this.scene.waveEnemyCount > 0) {
+                this.scene.waveEnemyCount--;
+            }
+            if (this.scene.debug) console.log(`🎯 Enemy killed! Gold: +${goldReward} (Total: ${this.scene.gold})`);
             if (this.scene.effectsManager) {
                 this.scene.effectsManager.confetti(enemy.x, enemy.y);
             }
         }
+    }
+
+    // called every scene update
+    update() {
+        // find closest active enemy within range
+        let enemies;
+        if (this.scene.queryEnemyBuckets) {
+            enemies = this.scene.queryEnemyBuckets(this.sprite.x, this.sprite.y, this.range);
+        } else {
+            enemies = this.scene.enemies.getChildren();
+        }
+        let closest = null;
+        let minDist = Infinity;
+        for (const enemy of enemies) {
+            if (!enemy.active) continue;
+            const dist = Phaser.Math.Distance.Between(
+                this.sprite.x, this.sprite.y,
+                enemy.x, enemy.y
+            );
+            if (dist <= this.range && dist < minDist) {
+                minDist = dist;
+                closest = enemy;
+            }
+        }
+
+        // pause or resume attack timer and animation depending on visibility
+        if (closest) {
+            if (this.timer && this.timer.paused) {
+                this.timer.paused = false;
+            }
+            if (this.sprite.anims && this.sprite.anims.isPaused) {
+                this.sprite.anims.resume();
+            }
+        } else {
+            if (this.timer && !this.timer.paused) {
+                this.timer.paused = true;
+            }
+            if (this.sprite.anims && !this.sprite.anims.isPaused) {
+                this.sprite.anims.pause();
+            }
+        }
+
+        if (closest) {
+            // compute displacement
+            const dx = closest.x - this.sprite.x;
+            const dy = closest.y - this.sprite.y;
+
+            // simple horizontal facing: flip sprite based on left/right
+            const flipX = dx < 0;
+            this.sprite.setFlipX(flipX);
+
+            // only allow a small tilt up/down; full vertical rotation is disabled
+            // use absolute dx so the tilt magnitude doesn't invert when flipping
+            let angle = Math.atan2(dy, Math.abs(dx));
+            const maxTilt = Math.PI / 6; // 30° max up/down
+            angle = Phaser.Math.Clamp(angle, -maxTilt, maxTilt);
+
+            this.sprite.setRotation(angle);
+        }
+        // if no enemy is in range we simply leave sprite rotation as-is (tower stops turning)
     }
 
     flashTower() {
@@ -308,6 +389,7 @@ export default class Tower {
             alpha: 0,
             duration: 300,
             ease: 'Power2',
+                useFrames: false,
             onComplete: () => circle.destroy()
         });
 
@@ -327,6 +409,7 @@ export default class Tower {
                 alpha: 0,
                 scale: 0,
                 duration: 400,
+                               useFrames: false,
                 ease: 'Power2.easeOut',
                 onComplete: () => particle.destroy()
             });
@@ -365,6 +448,7 @@ export default class Tower {
             alpha: 0,
             duration: 1200,
             ease: 'Quad.easeOut',
+                       useFrames: false,
             onComplete: () => {
                 floatingText.destroy();
                 shadow.destroy();
@@ -375,7 +459,7 @@ export default class Tower {
     upgrade() {
         // Check if tower has reached max upgrade level
         if (this.level >= this.maxLevel) {
-            console.log('❌ Tower has reached maximum upgrade level!');
+            if (this.scene.debug) console.log('❌ Tower has reached maximum upgrade level!');
             return false;
         }
         
@@ -385,11 +469,19 @@ export default class Tower {
         if (this.type === 'Farm') {
             // Farm towers generate more gold with each upgrade (5 per level)
             this.moneyGain += 5;  // Add 5 gold/sec per upgrade
-            console.log(`🌾 Farm upgraded! Now generates ${this.moneyGain} gold/sec`);
+            if (this.scene.debug) console.log(`🌾 Farm upgraded! Now generates ${this.moneyGain} gold/sec`);
         } else {
             // Combat towers get more damage and attack speed
+            // All combat towers (including Izanami) increase damage on upgrade
             this.damage += 1;  // Increase damage per level
-            this.attackSpeed = Math.max(200, this.attackSpeed - 75);  // Increase attack speed
+            if (this.scene.debug) {
+                if (this.imageKey === 'tower_izanami') {
+                    console.log(`🏹 Izanami upgraded! Damage now: ${this.damage}`);
+                } else {
+                    console.log(`⚔️ Tower upgraded! Damage now: ${this.damage}`);
+                }
+            }
+            this.attackSpeed = Math.max(200, this.attackSpeed - 50);  // Slight attack speed increase
         }
         
         // Visual feedback - increase in size
@@ -411,7 +503,7 @@ export default class Tower {
             });
         }
         
-        console.log(`🔧 Tower upgraded to level ${this.level}/${this.maxLevel}! Damage: ${this.damage.toFixed(1)}, Speed: ${this.attackSpeed}ms`);
+        if (this.scene.debug) console.log(`🔧 Tower upgraded to level ${this.level}/${this.maxLevel}! Damage: ${this.damage.toFixed(1)}, Speed: ${this.attackSpeed}ms`);
         return true;
     }
 
@@ -437,7 +529,11 @@ export default class Tower {
             }
             this.sprite.destroy();
         }
-        
+        // remove base marker under tower
+        if (this.baseSprite) {
+            this.baseSprite.destroy();
+        }
+
         // Destroy visual components
         if (this.rangeCircle) this.rangeCircle.destroy();
         if (this.timer) this.timer.destroy();
@@ -448,7 +544,7 @@ export default class Tower {
             this.incomeTimer = null;
         }
         
-        console.log(`💰 Tower sold for ${sellPrice}G (Invested: ${this.baseCost + (this.level - 1) * this.upgradeCost}G)`);
+        if (this.scene.debug) console.log(`💰 Tower sold for ${sellPrice}G (Invested: ${this.baseCost + (this.level - 1) * this.upgradeCost}G)`);
         
         return sellPrice;
     }

@@ -18,16 +18,16 @@ export default class PauseScene extends Phaser.Scene {
         // Dark overlay
         this.add.rectangle(width/2, height/2, width, height, 0x000000, 0.65);
 
-        // Main panel with modern styling
-        const panel = this.add.rectangle(width/2, height/2, 500, 480, 0x1a1a2e)
+        // Main panel with modern styling - INCREASED HEIGHT for 4 buttons
+        const panel = this.add.rectangle(width/2, height/2, 500, 620, 0x1a1a2e)
             .setStrokeStyle(3, 0x64d5ff, 0.8)
             .setDepth(10);
 
         // Decorative top bar
-        this.add.rectangle(width/2, height/2 - 210, 500, 8, 0x64d5ff, 0.6);
+        this.add.rectangle(width/2, height/2 - 240, 500, 8, 0x64d5ff, 0.6);
 
         // Title with glow effect
-        const titleText = this.add.text(width/2, height/2 - 180, 'PAUSED', {
+        const titleText = this.add.text(width/2, height/2 - 210, 'PAUSED', {
             fontSize: '64px',
             fontStyle: 'bold',
             color: '#64d5ff',
@@ -40,13 +40,14 @@ export default class PauseScene extends Phaser.Scene {
             alpha: { from: 1, to: 0.8 },
             duration: 1500,
             yoyo: true,
-            loop: -1
+            loop: -1,
+            useFrames: false
         });
 
         // Show game stats
         const activeScene = this.scene.get(this.pausedSceneKey);
         if (activeScene) {
-            const statsY = height/2 - 100;
+            const statsY = height/2 - 130;
             const statsColor = '#a8daff';
             const statsFontSize = '14px';
 
@@ -74,18 +75,38 @@ export default class PauseScene extends Phaser.Scene {
             });
         }
 
-        // Buttons with enhanced styling
-        this.makeButton(width/2, height/2 - 80, 'RESUME', () => {
-            this.scene.stop();
+        // Buttons with proper spacing for 4 buttons
+        const buttonYStart = height/2 - 90;
+        const buttonSpacing = 60;
+
+        // RESUME button
+        this.makeButton(width/2, buttonYStart, 'RESUME', () => {
+            const pausedScene = this.scene.get(this.pausedSceneKey);
+            if (pausedScene) {
+                pausedScene.time.timeScale = 1;
+            }
             this.scene.resume(this.pausedSceneKey);
+            this.scene.stop();
         }, 0x4a9eff);
 
-        this.makeButton(width/2, height/2, 'SAVE GAME', () => {
+        // SAVE GAME button
+        this.makeButton(width/2, buttonYStart + buttonSpacing, 'SAVE GAME', () => {
             this.saveGame();
         }, 0x90EE90);
 
-        this.makeButton(width/2, height/2 + 80, 'EXIT TO MENU', () => {
-            // stop paused scene then close pause scene itself before returning to menu
+        // SKILLS button - PURPLE
+        this.makeButton(width/2, buttonYStart + (buttonSpacing * 2), 'SKILLS', () => {
+            console.log('🎮 SKILLS button clicked!');
+            // Launch skill tree scene on top of pause scene (don't stop pause scene)
+            this.scene.launch('SkillTreeScene', { 
+                nextScene: this.pausedSceneKey, 
+                fromPause: true,
+                pausedGame: this.pausedSceneKey
+            });
+        }, 0x9b59b6);
+
+        // EXIT TO MENU button
+        this.makeButton(width/2, buttonYStart + (buttonSpacing * 3), 'EXIT TO MENU', () => {
             this.scene.stop(this.pausedSceneKey);
             this.scene.stop();
             this.scene.start('MenuScene');
@@ -141,6 +162,7 @@ export default class PauseScene extends Phaser.Scene {
             alpha: 0,
             duration: 2000,
             delay: 500,
+            useFrames: false,
             onComplete: () => feedbackText.destroy()
         });
     }
@@ -163,31 +185,34 @@ export default class PauseScene extends Phaser.Scene {
         btn.on('pointerover', () => {
             btnBg.setFillStyle(color, 0.35);
             btn.setScale(1.08);
-            this.tweens.add({
-                targets: btnBg,
-                fillAlpha: 0.35,
-                duration: 200
-            });
+                this.tweens.add({
+                    targets: btnBg,
+                    fillAlpha: 0.35,
+                    duration: 200,
+                    useFrames: false
+                });
         });
 
         btn.on('pointerout', () => {
             btnBg.setFillStyle(color, 0.15);
             btn.setScale(1);
-            this.tweens.add({
-                targets: btnBg,
-                fillAlpha: 0.15,
-                duration: 200
-            });
+                this.tweens.add({
+                    targets: btnBg,
+                    fillAlpha: 0.15,
+                    duration: 200,
+                    useFrames: false
+                });
         });
 
         btn.on('pointerdown', () => {
             // Button press animation
-            this.tweens.add({
-                targets: [btn, btnBg],
-                scaleY: 0.95,
-                duration: 100,
-                yoyo: true
-            });
+                this.tweens.add({
+                    targets: [btn, btnBg],
+                    scaleY: 0.95,
+                    duration: 100,
+                    yoyo: true,
+                    useFrames: false
+                });
             this.time.delayedCall(150, callback);
         });
     }

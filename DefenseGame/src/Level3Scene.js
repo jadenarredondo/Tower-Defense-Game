@@ -2,6 +2,7 @@ import Tower from './Tower.js';
 import AudioManager from './AudioManager.js';
 import ProgressManager from './ProgressManager.js';
 import EffectsManager from './EffectsManager.js';
+import SkillTreeManager from './SkillTreeManager.js';
 
 export default class Level3Scene extends Phaser.Scene {
     constructor() {
@@ -16,7 +17,8 @@ export default class Level3Scene extends Phaser.Scene {
     }
 
     preload() {
-        for (let i = 1; i <= 5; i++) this.load.image(`grass${i}`, `assets/Tiles/grass${i}.png`);
+        // Load grass tiles (support optional `grass_new` replacement)
+        this.load.image('grass_new', 'assets/Tiles/grass_new.png');
         this.load.image('stone_horizontal','assets/Tiles/stone_horizontal.png');
         this.load.image('stone_vertical','assets/Tiles/stone_vertical.png');
         this.load.image('corner_tl','assets/Tiles/corner_tl.png');
@@ -27,10 +29,22 @@ export default class Level3Scene extends Phaser.Scene {
         this.load.image('tree1','assets/Decorations/tree1.png');
         this.load.image('tree2','assets/Decorations/tree2.png');
         this.load.image('rock1','assets/Decorations/rock1.png');
+        this.load.image('Rock1_new','assets/Decorations/Rock1_new.png');
+        this.load.image('Rock2_new','assets/Decorations/Rock2_new.png');
+        this.load.image('Rock3_new','assets/Decorations/Rock3_new.png');
+        this.load.image('Rock4_new','assets/Decorations/Rock4_new.png');
         this.load.image('rock2','assets/Decorations/rock2.png');
         this.load.image('temple1','assets/Decorations/ruined_temple1.png');
         this.load.image('temple2','assets/Decorations/ruined_temple2.png');
         this.load.image('temple3','assets/Decorations/ruined_temple3.png');
+        // Bush spritesheets (8 frames each)
+        this.load.spritesheet('Bushe1','assets/Decorations/Bushe1.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('Bushe2','assets/Decorations/Bushe2.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('Bushe3','assets/Decorations/Bushe3.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('Bushe4','assets/Decorations/Bushe4.png', { frameWidth: 128, frameHeight: 128 });
+        // Flowers (12) and small grass clumps (6)
+        for (let i = 1; i <= 12; i++) this.load.image(`flower${i}`, `assets/Flower/${i}.png`);
+        for (let i = 1; i <= 6; i++) this.load.image(`grassSmall${i}`, `assets/Grass/${i}.png`);
 
         this.load.image('enemy','assets/Enemies/enemy.png');
         // ensure old flying textures are cleared before loading as spritesheets
@@ -45,12 +59,21 @@ export default class Level3Scene extends Phaser.Scene {
         this.load.on('complete', () => {
             if (this.textures.exists('enemy'))
                 this.textures.get('enemy').setFilter(Phaser.Textures.FilterMode.NEAREST);
+            if (this.textures.exists('grass_new'))
+                this.textures.get('grass_new').setFilter(Phaser.Textures.FilterMode.NEAREST);
+            ['Bushe1','Bushe2','Bushe3','Bushe4','Rock1_new','Rock2_new','Rock3_new','Rock4_new',
+             'flower1','flower2','flower3','flower4','flower5','flower6','flower7','flower8','flower9','flower10','flower11','flower12',
+             'grassSmall1','grassSmall2','grassSmall3','grassSmall4','grassSmall5','grassSmall6']
+            .forEach(k=>{
+                if (this.textures.exists(k)) this.textures.get(k).setFilter(Phaser.Textures.FilterMode.NEAREST);
+            });
         });
 
         // Load tower spritesheets - 64x64 per frame
         this.load.spritesheet('tower_izanami','assets/Tower/Izanami.png', { frameWidth: 64, frameHeight: 64 });
         this.load.spritesheet('tower_susanoo','assets/Tower/Susanoo.png', { frameWidth: 64, frameHeight: 64 });
         this.load.image('tower_farm','assets/Tower/shrine_farm.png');
+        this.load.image('tower_placement','assets/Tower Placement/tower_placement.png');
         // TODO: Load susanoo_water spritesheet when asset is added
 
         this.load.on('complete', () => {
@@ -62,6 +85,8 @@ export default class Level3Scene extends Phaser.Scene {
     }
 
     create() {
+        // round camera pixels to avoid rendering gaps
+        this.cameras.main.roundPixels = true;
         // ---------- AUDIO SETUP ----------
         this.audioManager.resume();
         this.audioManager.playBackgroundMusic();
@@ -100,10 +125,14 @@ export default class Level3Scene extends Phaser.Scene {
             repeat: 0
         });
 
+        // Bushes use static frame 0 - no animations
+
         // ---------- CONFIG ----------
         this.tileSize = 80;
         const MAP_WIDTH = 60;
         const MAP_HEIGHT = 32;
+        this.mapWidth = MAP_WIDTH;
+        this.mapHeight = MAP_HEIGHT;
 
         // ---------- CAMERA ----------
         this.cameras.main.setBounds(0,0,MAP_WIDTH*this.tileSize,MAP_HEIGHT*this.tileSize);
@@ -139,11 +168,15 @@ export default class Level3Scene extends Phaser.Scene {
         this.gold = 400;
         this.baseGoldReward = 15;
 
+        // Initialize skill modifiers
+        SkillTreeManager.initSkills();
+        this.skillModifiers = SkillTreeManager.getActiveModifiers();
+
         // Tower types definition
         this.towerTypes = {
-            basic: { name: 'Izanami', image: 'tower_izanami', cost: 50, damage: 1, range: 220, attackSpeed: 500, attackSpeedMult: 1, scaleMult: 1, description: 'Reliable tower', frames: 15 },
-            projectile: { name: 'Susanoo', image: 'tower_susanoo', cost: 100, damage: 4, range: 200, attackSpeed: 350, attackSpeedMult: 0.7, scaleMult: 1.5, description: 'Water cannon', frames: 15, projectile: 'susanoo_water' },
-            farm: { name: 'Farm', image: 'tower_farm', cost: 50, damage: 0, range: 10, attackSpeed: 1000, attackSpeedMult: 1.6, scaleMult: 1, moneyGain: 5, description: 'Income generator', frames: 1 }
+            basic: { name: 'Izanami', image: 'tower_izanami', cost: Math.floor(50 * this.skillModifiers.costMultiplier), damage: 1 * this.skillModifiers.damageMultiplier, range: 220 * this.skillModifiers.rangeMultiplier, attackSpeed: 500 / this.skillModifiers.attackSpeedMultiplier, attackSpeedMult: 1, scaleMult: 1, description: 'Reliable tower', frames: 15 },
+            projectile: { name: 'Susanoo', image: 'tower_susanoo', cost: Math.floor(100 * this.skillModifiers.costMultiplier), damage: 4 * this.skillModifiers.damageMultiplier, range: 200 * this.skillModifiers.rangeMultiplier, attackSpeed: 350 / this.skillModifiers.attackSpeedMultiplier, attackSpeedMult: 0.7, scaleMult: 1.5, description: 'Water cannon', frames: 15, projectile: 'susanoo_water' },
+            farm: { name: 'Farm', image: 'tower_farm', cost: Math.floor(50 * this.skillModifiers.costMultiplier), damage: 0, range: 10, attackSpeed: 1000, attackSpeedMult: 1.6, scaleMult: 1, moneyGain: 5 * this.skillModifiers.goldMultiplier, description: 'Income generator', frames: 1 }
         };
         this.selectedTowerType = 'basic';
 
@@ -181,19 +214,61 @@ export default class Level3Scene extends Phaser.Scene {
         this.setupKeyboardHotkeys();
 
         // ---------- TILES & MAP ----------
-        // draw grass fog 
-        const grassKeys = ['grass1','grass2','grass3','grass4','grass5'];
-        for (let y = 0; y < MAP_HEIGHT; y++) {
-            for (let x = 0; x < MAP_WIDTH; x++) {
-                this.add.image(x*this.tileSize+this.tileSize/2, y*this.tileSize+this.tileSize/2,
-                    Phaser.Utils.Array.GetRandom(grassKeys))
-                    .setDisplaySize(this.tileSize,this.tileSize)
-                    .setDepth(y - 1); // behind everything
+        // Initialize game structures first
+        this.enemies = this.add.group();
+        this.initEnemyBuckets();
+        this.towers = [];
+        this.walls = [];
+        this.tiles = [];
+        
+        // Draw grass into a RenderTexture to avoid seams and reduce CPU overhead.
+        // Process in chunks across multiple frames to avoid freezing.
+        const grassRT = this.add.renderTexture(0, 0, MAP_WIDTH * this.tileSize, MAP_HEIGHT * this.tileSize)
+            .setOrigin(0)
+            .setDepth(-1)
+            .setVisible(true);
+        const grassKey = 'grass_new';
+        const brush = this.add.image(0, 0, grassKey)
+            .setDisplaySize(this.tileSize, this.tileSize)
+            .setOrigin(0)
+            .setVisible(false);
+        
+        // Process grass in chunks to avoid freezing on large maps
+        const grassChunkSize = 4; // rows per frame
+        let grassY = 0;
+        
+        const processGrassChunk = () => {
+            const endY = Math.min(grassY + grassChunkSize, MAP_HEIGHT);
+            for (let y = grassY; y < endY; y++) {
+                for (let x = 0; x < MAP_WIDTH; x++) {
+                    const tx = x * this.tileSize;
+                    const ty = y * this.tileSize;
+                    grassRT.draw(brush, tx, ty);
+                }
             }
-        }
+            grassY = endY;
+            if (grassY < MAP_HEIGHT) {
+                this.time.delayedCall(0, processGrassChunk, [], this);
+            } else {
+                brush.destroy();
+                grassRT.setScrollFactor(1);
+                grassRT.setVisible(true);
+                // after grass is ready continue
+                this.setupPathAndDecorationsAndWaves();
+            }
+        };
 
-        // ---------- ENEMIES ----------
-        this.enemies = this.physics.add.group();
+        // Start the grass rendering process (which will call setupPathAndDecorationsAndWaves when done)
+        processGrassChunk();
+        
+        // Note: Map setup happens asynchronously across multiple frames
+    }
+
+    setupPathAndDecorationsAndWaves() {
+        const MAP_WIDTH = this.mapWidth;
+        const MAP_HEIGHT = this.mapHeight;
+        
+        // Initialize enemies alive counter
         this.enemiesAlive = 0;
 
         // Define path as tile-coordinate array - complex winding snake path for Level 3
@@ -223,6 +298,7 @@ export default class Level3Scene extends Phaser.Scene {
 
         // Path tiles
         const pathSet = new Set(this.path.map(p => `${p.x},${p.y}`));
+        this.pathSet = pathSet;
         for (const p of this.path) {
             const L = pathSet.has(`${p.x - 1},${p.y}`),
                   R = pathSet.has(`${p.x + 1},${p.y}`),
@@ -243,16 +319,33 @@ export default class Level3Scene extends Phaser.Scene {
         }
 
         // ---------- DECORATIONS ----------
+        // Place decorations in chunks to avoid frame freezing
         const used = new Set(this.path.map(p => `${p.x},${p.y}`));
         
-        // Place decorations mostly along the path with some random distribution
-        const placeDec = (count, keys, scale) => {
+        const decorationQueue = [
+            { count: 15, type: 'special', keys: ['tree1','tree2'], scale: 1.3 },
+            { count: 10, type: 'special', keys: ['rock1','rock2'], scale: 0.8 },
+            { count: 16, type: 'bush', keys: ['Bushe1','Bushe2','Bushe3','Bushe4'], scale: 1.0 }
+        ];
+        
+        let decorQueueIndex = 0;
+        let decorAttemptsPerFrame = 12;
+        
+        const placeDecorationsChunk = () => {
+            if (decorQueueIndex >= decorationQueue.length) {
+                // Decorations done, continue with rest of setup
+                this.finishMapSetup();
+                return;
+            }
+            
+            const decorConfig = decorationQueue[decorQueueIndex];
             let placed = 0;
-            while (placed < count) {
-                // 70% chance to place near path, 30% chance anywhere on map
+            let attempts = 0;
+            const maxAttempts = decorAttemptsPerFrame * 4;
+            
+            while (placed < decorConfig.count && attempts < maxAttempts) {
                 let x, y;
-                if (Phaser.Math.Between(0, 100) < 70 && this.path.length > 0) {
-                    // Pick random path tile and offset nearby
+                if (decorConfig.type === 'special' && Phaser.Math.Between(0, 100) < 70 && this.path.length > 0) {
                     const pathTile = Phaser.Utils.Array.GetRandom(this.path);
                     x = pathTile.x + Phaser.Math.Between(-3, 3);
                     y = pathTile.y + Phaser.Math.Between(-3, 3);
@@ -264,60 +357,46 @@ export default class Level3Scene extends Phaser.Scene {
                 }
                 
                 const id = `${x},${y}`;
+                attempts++;
                 if (!used.has(id)) {
-                    this.add.image(x * this.tileSize + this.tileSize/2, y * this.tileSize + this.tileSize/2,
-                        Phaser.Utils.Array.GetRandom(keys)).setScale(scale).setDepth(y + 10);
+                    const key = Phaser.Utils.Array.GetRandom(decorConfig.keys);
+                    if (decorConfig.type === 'bush') {
+                        this.add.sprite(x * this.tileSize + this.tileSize/2, y * this.tileSize + this.tileSize/2, key, 0)
+                            .setScale(decorConfig.scale).setDepth(y + 11);
+                    } else {
+                        this.add.image(x * this.tileSize + this.tileSize/2, y * this.tileSize + this.tileSize/2, key)
+                            .setScale(decorConfig.scale).setDepth(y + 10);
+                    }
                     used.add(id);
                     placed++;
                 }
             }
+            
+            decorConfig.count -= placed;
+            if (decorConfig.count <= 0) {
+                decorQueueIndex++;
+            }
+            
+            // Continue next frame to avoid freezing
+            if (decorQueueIndex < decorationQueue.length) {
+                this.time.delayedCall(10, placeDecorationsChunk, [], this);
+            } else {
+                this.finishMapSetup();
+            }
         };
-        placeDec(12, ['tree1','tree2'], 1.3);
-        placeDec(8, ['rock1','rock2'], 0.8);
-        placeDec(4, ['temple1','temple2','temple3'], 1.2);
+        
+        placeDecorationsChunk();
+    }
 
-        // walls / tile array still available in case later logic uses it
-        this.walls = this.physics.add.staticGroup();
-        this.tiles = [];
-
-        // ---------- TOWERS ----------
-        this.towers = [];
-
-        // Tower placement zones - increased for Level 3
-        this.towerZones = [];
-        const zonePaddingX = 200;
-        const zonePaddingY = 200;
-        const zoneSpacingX = 280;
-        const zoneSpacingY = 280;
-
-        for (let y = zonePaddingY; y < MAP_HEIGHT * this.tileSize - zonePaddingY; y += zoneSpacingY) {
-            for (let x = zonePaddingX; x < MAP_WIDTH * this.tileSize - zonePaddingX; x += zoneSpacingX) {
-                this.towerZones.push({ x, y, tower: null, id: this.towerZones.length });
-            }
-        }
-
-        // Draw tower zones - VISIBLE GREEN CIRCLES
-        this.zones = this.add.graphics();
-        this.zones.fillStyle(0x00ff00, 0.2);
-        this.zones.lineStyle(2, 0x00ff00, 0.8);
-        this.towerZones.forEach(zone => {
-            this.zones.fillCircle(zone.x, zone.y, 50);
-            this.zones.strokeCircle(zone.x, zone.y, 50);
-        });
-        this.zones.setDepth(10);
-
-        // Tower zone click handler
+    finishMapSetup() {
+        // Setup tower placement
         this.input.on('pointerdown', pointer => {
-            for (const zone of this.towerZones) {
-                const dist = Phaser.Math.Distance.Between(pointer.worldX, pointer.worldY, zone.x, zone.y);
-                if (dist < 50) {
-                    this.handleTowerPlacement(zone);
-                    break;
-                }
-            }
+            const towerPos = this.findNearestZone(pointer.worldX, pointer.worldY);
+            if (!towerPos) return;
+            this.handleTowerPlacement(towerPos);
         });
 
-        // ---------- WAVES ----------
+        // Setup waves
         this.waves = [
             { count: 20, delay: 600, duration: 30000 },
             { count: 25, delay: 500, duration: 30000 },
@@ -331,10 +410,7 @@ export default class Level3Scene extends Phaser.Scene {
         this.waveEnemyCount = 0;
         this.nextWaveCountdown = 0;
 
-        // ---------- UI ----------
         this.updateUI();
-        
-        // Setup audio controls
         this.setupAudioControls();
 
         // ESC to pause
@@ -359,32 +435,34 @@ export default class Level3Scene extends Phaser.Scene {
             if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
             if (this.audioManager) this.audioManager.stopBackgroundMusic();
             
-            // Reset time scale to 1x before leaving scene
             this.time.timeScale = 1;
 
-            // cleanup timers/animations and enemies
             if (this.waveTimer) {
                 this.waveTimer.remove(false);
                 this.waveTimer = null;
             }
             this.time.removeAllEvents();
-            if (this.enemies && this.enemies.isActive?.() !== false && typeof this.enemies.getChildren === 'function') {
+            
+            if (this.enemies) {
                 try {
-                    const children = this.enemies.getChildren();
-                    if (Array.isArray(children)) {
-                        children.forEach(e => {
-                            if (e.healthBar) e.healthBar.destroy();
-                            e.destroy();
-                        });
+                    if (this.enemies.children && this.enemies.children instanceof Map) {
+                        const children = Array.from(this.enemies.children.values());
+                        for (let i = children.length - 1; i >= 0; i--) {
+                            const e = children[i];
+                            if (e && !e.isDestroyed) {
+                                if (e.healthBar && !e.healthBar.isDestroyed) {
+                                    e.healthBar.destroy();
+                                }
+                                e.destroy();
+                            }
+                        }
                     }
-                    this.enemies.clear(true);
                 } catch (e) {
-                    console.warn('Error clearing enemies:', e);
+                    // Silently ignore errors
                 }
             }
             this.enemies = null;
 
-            // Remove audio event listeners
             const muteBtn = document.getElementById('mute-btn');
             const volumeSlider = document.getElementById('volume-slider');
             if (muteBtn && this.muteClickHandler) {
@@ -394,13 +472,11 @@ export default class Level3Scene extends Phaser.Scene {
                 volumeSlider.removeEventListener('input', this.volumeChangeHandler);
             }
             
-            // Remove speed button listener
             const topBar = document.getElementById('top-bar');
             if (topBar && this.speedButtonHandler) {
                 topBar.removeEventListener('click', this.speedButtonHandler);
             }
 
-            // remove input listeners
             this.input.off('pointerdown');
             this.input.off('pointermove');
             this.input.off('wheel');
@@ -446,6 +522,8 @@ export default class Level3Scene extends Phaser.Scene {
     }
 
     update(time, delta) {
+        // refresh spatial index before towers query
+        this.rebuildEnemyBuckets();
         // Keyboard camera movement (arrow keys and WASD)
         if (this.keyW.isDown) this.cameras.main.scrollY -= this.cameraSpeed;
         if (this.keyS.isDown) this.cameras.main.scrollY += this.cameraSpeed;
@@ -457,9 +535,11 @@ export default class Level3Scene extends Phaser.Scene {
         if (this.lastFarmTick >= this.farmTickInterval) {
             // Sum up gold from all farm towers
             let totalFarmGold = 0;
-            for (const tower of this.towers) {
-                if (tower.type === 'Farm') {
-                    totalFarmGold += tower.moneyGain;
+            if (this.towers) {
+                for (const tower of this.towers) {
+                    if (tower.type === 'Farm') {
+                        totalFarmGold += tower.moneyGain;
+                    }
                 }
             }
             
@@ -469,7 +549,7 @@ export default class Level3Scene extends Phaser.Scene {
         }
 
         // Wave management
-        if (!this.waveActive && this.currentWave < this.waves.length) {
+        if (this.waves && !this.waveActive && this.currentWave < this.waves.length) {
             this.nextWaveCountdown += delta;
             if (this.nextWaveCountdown >= 2000) {
                 this.startWave();
@@ -481,7 +561,7 @@ export default class Level3Scene extends Phaser.Scene {
         if (this.waveActive) {
             if (this.enemiesAlive === 0 && this.waveEnemyCount === 0) {
                 this.waveActive = false;
-                if (this.currentWave < this.waves.length) {
+                if (this.waves && this.currentWave < this.waves.length) {
                     this.currentWave++;
                     this.updateUI();
                 }
@@ -489,7 +569,7 @@ export default class Level3Scene extends Phaser.Scene {
         }
 
         // Win condition
-        if (this.currentWave >= this.waves.length && this.enemiesAlive === 0 && !this._winTriggered) {
+        if (this.waves && this.currentWave >= this.waves.length && this.enemiesAlive === 0 && !this._winTriggered) {
             this._winTriggered = true;
             this.time.delayedCall(500, () => this.winGame());
         }
@@ -502,6 +582,8 @@ export default class Level3Scene extends Phaser.Scene {
     }
 
     startWave() {
+        if (!this.waves || this.currentWave >= this.waves.length) return;
+        
         const wave = this.waves[this.currentWave];
         const isFinalWave = this.currentWave >= this.waves.length - 1;
         
@@ -511,7 +593,7 @@ export default class Level3Scene extends Phaser.Scene {
         // Spawn boss on final wave
         if (isFinalWave) {
             this.spawnBoss();
-            console.log(`🌊 Final Wave ${this.currentWave + 1}: BOSS INCOMING!`);
+            if (this.debug) console.log(`🌊 Final Wave ${this.currentWave + 1}: BOSS INCOMING!`);
         }
 
         let spawnedCount = 0;
@@ -527,6 +609,44 @@ export default class Level3Scene extends Phaser.Scene {
         this.updateUI();
     }
 
+    // spatial index helpers
+    // spatial index helpers using grid buckets
+    initEnemyBuckets(bucketSize = 128) {
+        this.bucketSize = bucketSize;
+        this.enemyBuckets = Object.create(null);
+    }
+
+    rebuildEnemyBuckets() {
+        if (!this.enemies) return;
+        this.enemyBuckets = Object.create(null);
+        const size = this.bucketSize;
+        this.enemies.getChildren().forEach(e => {
+            if (!e || !e.active) return;
+            const bx = Math.floor(e.x / size);
+            const by = Math.floor(e.y / size);
+            const key = `${bx},${by}`;
+            if (!this.enemyBuckets[key]) this.enemyBuckets[key] = [];
+            this.enemyBuckets[key].push(e);
+        });
+    }
+
+    queryEnemyBuckets(x, y, range) {
+        if (!this.enemyBuckets) return [];
+        const size = this.bucketSize;
+        const minBx = Math.floor((x - range) / size);
+        const maxBx = Math.floor((x + range) / size);
+        const minBy = Math.floor((y - range) / size);
+        const maxBy = Math.floor((y + range) / size);
+        const results = [];
+        for (let bx = minBx; bx <= maxBx; bx++) {
+            for (let by = minBy; by <= maxBy; by++) {
+                const bucket = this.enemyBuckets[`${bx},${by}`];
+                if (bucket) results.push(...bucket);
+            }
+        }
+        return results;
+    }
+
     spawnEnemy() {
         const offset = this.tileSize * 0.3;
         // decide normal vs ghost – ghost is the flying creature
@@ -538,16 +658,17 @@ export default class Level3Scene extends Phaser.Scene {
             this.path[0].x*this.tileSize+this.tileSize/2 + Phaser.Math.Between(-offset,offset),
             this.path[0].y*this.tileSize+this.tileSize/2 + Phaser.Math.Between(-offset,offset),
             key
-        ).setOrigin(0.5).setDisplaySize(this.tileSize * spriteSize, this.tileSize * spriteSize).setDepth(5100);
+        ).setOrigin(0.5).setDisplaySize(this.tileSize * spriteSize, this.tileSize * spriteSize).setDepth(5100).setActive(true).setVisible(true);
 
         enemy.isFlying = isGhost && this.textures.exists('flying_walk');
         enemy.isGhost = isGhost;
+        enemy._exited = false;
         
         // Play walking animation if flying
         if (enemy.isFlying && this.anims.exists('flying_walk')) {
             const anim = this.anims.get('flying_walk');
             if (anim && anim.frames && anim.frames.length > 0) {
-                console.log('🐉 Flying enemy spawned with walk animation');
+                if (this.debug) console.log('🐉 Flying enemy spawned with walk animation');
                 enemy.play('flying_walk');
             } else {
                 // animation invalid, fallback to static enemy
@@ -565,16 +686,14 @@ export default class Level3Scene extends Phaser.Scene {
 
         this.enemies.add(enemy);
         this.enemiesAlive++;
+        // buckets rebuilt each frame; no per-enemy insert needed
 
         this.moveEnemy(enemy);
     }
 
-    handleTowerPlacement(zone) {
-        // Check for existing tower
-        const existingTower = this.towers.find(t => 
-            Math.abs(t.sprite.x - zone.x) < 5 && 
-            Math.abs(t.sprite.y - zone.y) < 5
-        );
+    handleTowerPlacement(pos) {
+        // pos contains world x/y and grid gx/gy
+        const existingTower = this.towers.find(t => t.gx === pos.gx && t.gy === pos.gy);
 
         if (existingTower) {
             // Show upgrade menu for existing tower
@@ -584,24 +703,83 @@ export default class Level3Scene extends Phaser.Scene {
             const cost = this.towerTypes[this.selectedTowerType].cost;
             if (this.gold >= cost) {
                 const config = this.towerTypes[this.selectedTowerType];
-                const tower = new Tower(this, zone.x, zone.y, config);
+                const tower = new Tower(this, pos.x, pos.y, config);
+                tower.gx = pos.gx;
+                tower.gy = pos.gy;
                 this.towers.push(tower);
                 this.gold -= cost;
-                zone.tower = tower;
-                this.audioManager.playClick();
-                console.log(`✅ Tower placed! Type: ${config.name}, Cost: ${cost}, Remaining gold: ${this.gold}`);
+                if (this.audioManager) this.audioManager.playClick();
+                if (this.debug) console.log(`✅ Tower placed! Type: ${config.name}, Cost: ${cost}, Remaining gold: ${this.gold}`);
             } else {
-                console.log(`❌ Not enough gold! Need: ${cost}, Have: ${this.gold}`);
+                if (this.debug) console.log(`❌ Not enough gold! Need: ${cost}, Have: ${this.gold}`);
             }
         } else {
-            console.log(`❌ Max towers (${this.maxTowers}) reached!`);
+            if (this.debug) console.log(`❌ Max towers (${this.maxTowers}) reached!`);
         }
         this.updateUI();
     }
 
+    // helper to convert mouse coords to valid placement position
+    findNearestZone(x, y) {
+        const gx = Math.floor(x / this.tileSize);
+        const gy = Math.floor(y / this.tileSize);
+        const mw = this.mapWidth, mh = this.mapHeight;
+        if (gx < 0 || gy < 0 || gx >= mw || gy >= mh) return null;
+        if (this.pathSet && this.pathSet.has(`${gx},${gy}`)) return null;
+        return {
+            x: gx * this.tileSize + this.tileSize/2,
+            y: gy * this.tileSize + this.tileSize/2,
+            gx,
+            gy
+        };
+    }
+
+    // slide enemies off map when they escape
+    handleEnemyEscape(enemy){
+        if(enemy._exited) return;
+        enemy._exited = true;
+
+        this.playerHealth -= enemy.damage;
+        if (this.audioManager) this.audioManager.playDamage();
+        this.enemiesAlive--;
+        // CRITICAL FIX: Also decrement waveEnemyCount when enemy escapes
+        if (this.waveEnemyCount > 0) {
+            this.waveEnemyCount--;
+        }
+        if (this.debug) console.log(`Enemy escaped! Alive: ${this.enemiesAlive}`);
+
+        if(enemy.healthBar) enemy.healthBar.destroy();
+
+        let offX = enemy.x;
+        let offY = enemy.y;
+        if(this.path.length >= 2){
+            const last = this.path[this.path.length-1];
+            const prev = this.path[this.path.length-2];
+            const dx = last.x - prev.x;
+            const dy = last.y - prev.y;
+            offX = last.x*this.tileSize + this.tileSize/2 + dx*this.tileSize*2;
+            offY = last.y*this.tileSize + this.tileSize/2 + dy*this.tileSize*2;
+        }
+        this.tweens.add({
+            targets: enemy,
+            x: offX,
+            y: offY,
+            duration: 300 / this.time.timeScale,
+            ease: 'Linear',
+            onComplete: ()=>{
+                try{ enemy.destroy(); }catch(e){}
+                if(this.enemies) this.enemies.remove(enemy);
+                if(this.playerHealth<=0) this.loseGame();
+            }
+        });
+    }
+
     moveEnemy(enemy){
-        if(!enemy.active) return;
-        if(enemy.pathIndex>=this.path.length-1) return;
+        if(!enemy || !enemy.active) return;
+        if(enemy.pathIndex>=this.path.length-1){
+            this.handleEnemyEscape(enemy);
+            return;
+        }
         
         // play flying animation when moving
         if (enemy.isFlying && this.anims.exists('flying_fly')) {
@@ -612,7 +790,8 @@ export default class Level3Scene extends Phaser.Scene {
         }
 
         const next = this.path[enemy.pathIndex+1];
-        const duration = Math.max(300, 800 - this.currentWave*80);
+        const baseDuration = Math.max(300, 800 - this.currentWave*80);
+        const duration = baseDuration / this.time.timeScale;
 
         this.tweens.add({
             targets: enemy,
@@ -620,21 +799,20 @@ export default class Level3Scene extends Phaser.Scene {
             y: next.y*this.tileSize + this.tileSize/2,
             duration: duration,
             ease:'Linear',
-            onUpdate: ()=>{ if(enemy.healthBar) enemy.healthBar.setPosition(enemy.x, enemy.y-40); },
+            useFrames: false,
+            onUpdate: ()=>{ 
+                // Validate enemy still exists before updating
+                if(enemy && enemy.active && enemy.healthBar && !enemy.destroyed) {
+                    enemy.healthBar.setPosition(enemy.x, enemy.y-40);
+                    enemy.setDepth(5100 + enemy.y);
+                }
+            },
             onComplete: ()=>{
+                // Validate enemy still exists before continuing
+                if(!enemy || !enemy.active || enemy.destroyed) return;
                 enemy.pathIndex++;
                 if(enemy.pathIndex>=this.path.length-1){
-                    // Enemy has reached the end of path
-                    this.playerHealth -= enemy.damage;
-                    if (this.audioManager) this.audioManager.playDamage();
-                    if(enemy.healthBar) enemy.healthBar.destroy();
-                    enemy.destroy();
-                    this.enemies.remove(enemy);
-                    this.enemiesAlive--;
-                    console.log(`Enemy escaped! Alive: ${this.enemiesAlive}`);
-                    if(this.playerHealth<=0) {
-                        this.loseGame();
-                    }
+                    this.handleEnemyEscape(enemy);
                 } else {
                     this.moveEnemy(enemy);
                 }
@@ -900,11 +1078,11 @@ export default class Level3Scene extends Phaser.Scene {
 
         if (tower.upgrade()) {
             this.gold -= cost;
-            console.log(`✨ Tower upgraded! Gold: -${cost} (Total: ${this.gold})`);
+            if (this.debug) console.log(`✨ Tower upgraded! Gold: -${cost} (Total: ${this.gold})`);
             if (this.audioManager) this.audioManager.playUpgrade();
             this.updateUI();
         } else {
-            console.log(`❌ Tower is already at maximum level!`);
+            if (this.debug) console.log(`❌ Tower is already at maximum level!`);
         }
     }
 
@@ -913,18 +1091,38 @@ export default class Level3Scene extends Phaser.Scene {
         this.gold += sellPrice;
         const idx = this.towers.indexOf(tower);
         if (idx > -1) this.towers.splice(idx, 1);
-        console.log(`💰 Tower sold for ${sellPrice}G (Total gold: ${this.gold})`);
+        if (this.debug) console.log(`💰 Tower sold for ${sellPrice}G (Total gold: ${this.gold})`);
         if (this.audioManager) this.audioManager.playClick();
         this.updateUI();
     }
 
     updateUI() {
+        // bail early if core DOM elements aren't ready (shouldn't happen but
+        // just in case load order changes)
+        if (!this.healthBarElement || !this.healthTextElement || !this.waveNumberElement ||
+            !this.waveStatusElement || !this.towersCountElement || !this.goldElement) {
+            return;
+        }
+
+        // health
         this.healthBarElement.style.width = (this.playerHealth / this.maxPlayerHealth * 100) + '%';
         this.healthTextElement.textContent = `${this.playerHealth}/${this.maxPlayerHealth}`;
-        this.waveNumberElement.textContent = `Wave ${this.currentWave + 1}/${this.waves.length}`;
+
+        // wave info: guard against waves being undefined or not an array
+        let totalWaves = '?';
+        if (Array.isArray(this.waves)) {
+            totalWaves = this.waves.length;
+        }
+        this.waveNumberElement.textContent = `Wave ${this.currentWave + 1}/${totalWaves}`;
         this.waveStatusElement.textContent = this.waveActive ? `Enemies: ${this.enemiesAlive}` : 'Ready';
-        this.towersCountElement.textContent = `${this.towers.length}/${this.maxTowers}`;
+
+        // towers count
+        const towerCount = Array.isArray(this.towers) ? this.towers.length : 0;
+        this.towersCountElement.textContent = `${towerCount}/${this.maxTowers}`;
+
+        // gold
         this.goldElement.textContent = this.gold;
+
         this.updateTowerSelectionUI();
     }
 
@@ -954,7 +1152,7 @@ export default class Level3Scene extends Phaser.Scene {
         this.enemies.add(boss);
         this.enemiesAlive++;
 
-        console.log('👹 Boss spawned!');
+        if (this.debug) console.log('👹 Boss spawned!');
         this.moveEnemy(boss);
     }
 
@@ -996,7 +1194,7 @@ export default class Level3Scene extends Phaser.Scene {
 
     selectTowerType(towerType) {
         this.selectedTowerType = towerType;
-        console.log(`🎯 Selected tower type: ${towerType}`);
+        if (this.debug) console.log(`🎯 Selected tower type: ${towerType}`);
         
         // Update UI
         document.querySelectorAll('.tower-option').forEach(option => {
@@ -1024,19 +1222,20 @@ export default class Level3Scene extends Phaser.Scene {
     }
 
     loseGame(){
-        console.log('💀 GAME OVER...');
+        if (this.debug) console.log('💀 GAME OVER...');
         if (this.audioManager) this.audioManager.playGameOver();
         this.waveActive = false;
         const uiBar = document.getElementById('game-ui');
         if (uiBar) uiBar.style.display = 'none';
         const towerSelectionPanel = document.getElementById('tower-selection-panel');
         if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
-        this.scene.launch('LoseScene');
+        // level 3 failure
+        this.scene.launch('LoseScene', { level: 3 });
         this.scene.pause('Level3Scene');
     }
 
     winGame(){
-        console.log('🎉 WINNING LEVEL 3...');
+        if (this.debug) console.log('🎉 WINNING LEVEL 3...');
         if (this.audioManager) this.audioManager.playVictory();
         ProgressManager.completeLevel(3);
         this.waveActive = false;
@@ -1076,21 +1275,98 @@ export default class Level3Scene extends Phaser.Scene {
         this.input.keyboard.on('keydown-ONE', () => {
             if (this.audioManager) this.audioManager.playClick();
             this.selectTowerType('basic');
-            console.log('⌨️ Selected: Basic Tower (hotkey 1)');
+            if (this.debug) console.log('⌨️ Selected: Basic Tower (hotkey 1)');
         });
 
         // 2 = Projectile tower
         this.input.keyboard.on('keydown-TWO', () => {
             if (this.audioManager) this.audioManager.playClick();
             this.selectTowerType('projectile');
-            console.log('⌨️ Selected: Projectile Tower (hotkey 2)');
+            if (this.debug) console.log('⌨️ Selected: Projectile Tower (hotkey 2)');
         });
 
         // 3 = Farm tower
         this.input.keyboard.on('keydown-THREE', () => {
             if (this.audioManager) this.audioManager.playClick();
             this.selectTowerType('farm');
-            console.log('⌨️ Selected: Farm Tower (hotkey 3)');
+            if (this.debug) console.log('⌨️ Selected: Farm Tower (hotkey 3)');
         });
+    }
+
+    // animate enemies past the exit and apply damage
+    handleEnemyEscape(enemy){
+        if(enemy._exited) return;
+        enemy._exited = true;
+
+        this.playerHealth -= enemy.damage;
+        if(enemy.healthBar) enemy.healthBar.destroy();
+        this.enemiesAlive--;
+        console.log(`Enemy escaped! Alive: ${this.enemiesAlive}`);
+
+        // determine exit direction
+        let offX = enemy.x;
+        let offY = enemy.y;
+        if(this.path.length >= 2){
+            const last = this.path[this.path.length-1];
+            const prev = this.path[this.path.length-2];
+            const dx = last.x - prev.x;
+            const dy = last.y - prev.y;
+            offX = last.x*this.tileSize + this.tileSize/2 + dx*this.tileSize*2;
+            offY = last.y*this.tileSize + this.tileSize/2 + dy*this.tileSize*2;
+        }
+        this.tweens.add({
+            targets: enemy,
+            x: offX,
+            y: offY,
+            duration: 300 / this.time.timeScale,
+            ease: 'Linear',
+            onComplete: ()=>{
+                try{ enemy.destroy(); }catch(e){}
+                if(this.enemies) this.enemies.remove(enemy);
+                if(this.playerHealth<=0) this.loseGame();
+            }
+        });
+    }
+
+    moveEnemy(enemy){
+        if(!enemy || !enemy.active) return;
+        if(enemy.pathIndex>=this.path.length-1){
+            this.handleEnemyEscape(enemy);
+            return;
+        }
+
+        const next = this.path[enemy.pathIndex+1];
+        const baseDuration = Math.max(300, 800 - this.currentWave*80);
+        const duration = baseDuration / this.time.timeScale;
+
+        this.tweens.add({
+            targets: enemy,
+            x: next.x*this.tileSize + this.tileSize/2,
+            y: next.y*this.tileSize + this.tileSize/2,
+            duration: duration,
+            ease:'Linear',
+            useFrames: false,
+            onUpdate: ()=>{ 
+                // Validate enemy still exists before updating
+                if(enemy && enemy.active && enemy.healthBar && !enemy.destroyed) {
+                    enemy.healthBar.setPosition(enemy.x, enemy.y-40);
+                    enemy.setDepth(5100 + enemy.y);
+                }
+            },
+            onComplete: ()=>{
+                // Validate enemy still exists before continuing
+                if(!enemy || !enemy.active || enemy.destroyed) return;
+                enemy.pathIndex++;
+                if(enemy.pathIndex>=this.path.length-1){
+                    this.handleEnemyEscape(enemy);
+                } else {
+                    this.moveEnemy(enemy);
+                }
+            }
+        });
+    }
+
+    setGameSpeed(speed) {
+        this.time.timeScale = speed;
     }
 }

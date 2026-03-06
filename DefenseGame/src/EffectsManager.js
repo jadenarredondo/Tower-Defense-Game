@@ -26,6 +26,7 @@ export default class EffectsManager {
             scale: 0.8,
             duration: 800,
             ease: 'Quad.easeOut',
+                       useFrames: false,
             onComplete: () => damageText.destroy()
         });
     }
@@ -48,6 +49,7 @@ export default class EffectsManager {
             y: y - 70,
             alpha: 0,
             duration: 1000,
+                       useFrames: false,
             ease: 'Quad.easeOut',
             onComplete: () => healText.destroy()
         });
@@ -69,6 +71,7 @@ export default class EffectsManager {
             repeat: -1,
             yoyo: true,
             ease: 'Linear',
+                       useFrames: false,
             onUpdate: (tween) => {
                 camera.setPosition(originalX + (Math.random() - 0.5) * intensity * 2,
                                  originalY + (Math.random() - 0.5) * intensity * 2);
@@ -86,6 +89,7 @@ export default class EffectsManager {
         return this.scene.tweens.add({
             targets: target,
             scale: scale,
+                       useFrames: false,
             duration: duration,
             yoyo: true,
             ease: 'Quad.easeInOut'
@@ -123,6 +127,7 @@ export default class EffectsManager {
         return this.scene.tweens.add({
             targets: target,
             rotation: Math.PI * 2 * rotations,
+                       useFrames: false,
             duration: duration,
             ease: 'Linear'
         });
@@ -157,7 +162,8 @@ export default class EffectsManager {
             duration: duration / (bounces * 2),
             repeat: bounces * 2 - 1,
             yoyo: true,
-            ease: 'Power1.easeOut'
+            ease: 'Power1.easeOut',
+            useFrames: false
         });
     }
 
@@ -182,6 +188,7 @@ export default class EffectsManager {
                 rotation: Math.random() * Math.PI * 2,
                 duration: 1000,
                 ease: 'Power2.easeOut',
+                               useFrames: false,
                 onComplete: () => particle.destroy()
             });
         }
@@ -197,6 +204,7 @@ export default class EffectsManager {
         
         this.scene.tweens.add({
             targets: flash,
+                       useFrames: false,
             alpha: 0,
             duration: duration,
             ease: 'Linear',
@@ -211,6 +219,7 @@ export default class EffectsManager {
         return this.scene.tweens.add({
             targets: target,
             rotation: Phaser.Math.DegToRad(angle),
+                       useFrames: false,
             duration: duration,
             yoyo: true,
             ease: 'Quad.easeInOut'

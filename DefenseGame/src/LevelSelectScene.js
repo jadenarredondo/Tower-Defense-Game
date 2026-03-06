@@ -165,6 +165,7 @@ export default class LevelSelectScene extends Phaser.Scene {
 
     startLevel(levelNum) {
         const scenes = ['MainScene', 'Level2Scene', 'Level3Scene'];
-        this.scene.start(scenes[levelNum - 1]);
+        const targetScene = scenes[levelNum - 1];
+        this.scene.start('LoadingScene', { target: targetScene, payload: { level: levelNum } });
     }
 }

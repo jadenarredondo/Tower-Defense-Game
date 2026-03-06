@@ -9,6 +9,8 @@ import PauseScene from './PauseScene.js';
 import SettingsScene from './SettingsScene.js';
 import WinScene from './WinScene.js';
 import LoseScene from './LoseScene.js';
+import SkillTreeScene from './SkillTreeScene.js';
+import LoadingScene from './LoadingScene.js';
 
 const config = {
     type: Phaser.AUTO,
@@ -20,10 +22,16 @@ const config = {
         default: 'arcade',
         arcade: { gravity: { y: 0 }, debug: false }
     },
-    scene: [MenuScene, LevelSelectScene, DifficultySelectScene, TutorialScene, MainScene, Level2Scene, Level3Scene, PauseScene, SettingsScene, WinScene, LoseScene],
+    scene: [MenuScene, LevelSelectScene, DifficultySelectScene, TutorialScene, MainScene, Level2Scene, Level3Scene, PauseScene, SettingsScene, WinScene, LoseScene, SkillTreeScene, LoadingScene],
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH
+    },
+    // Enable pixel-art mode and disable antialiasing to avoid texture bleeding
+    render: {
+        pixelArt: true,
+        antialias: false,
+        roundPixels: true
     }
 };
 

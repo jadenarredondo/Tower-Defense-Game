@@ -59,7 +59,7 @@ A modern, feature-rich tower defense game built with Phaser 3, featuring immersi
 ### Controls
 
 **Tower Placement**
-- Click on green zones to place towers
+- Click anywhere off the path to place towers
 - Click existing tower to upgrade it
 - Number keys 1-3 to select tower type
 

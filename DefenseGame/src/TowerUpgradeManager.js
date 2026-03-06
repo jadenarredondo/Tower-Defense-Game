@@ -42,7 +42,7 @@ export default class TowerUpgradeManager {
             }
         }
 
-        console.log(`✨ Tower upgraded! ${upgrade.name}`);
+        if (this.scene.debug) console.log(`✨ Tower upgraded! ${upgrade.name}`);
         if (this.scene.audioManager) {
             this.scene.audioManager.playUpgrade();
         }

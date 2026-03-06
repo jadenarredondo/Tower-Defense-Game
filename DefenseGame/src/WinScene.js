@@ -1,5 +1,6 @@
 import ProgressManager from './ProgressManager.js';
 import AchievementManager from './AchievementManager.js';
+import SkillTreeManager from './SkillTreeManager.js';
 
 export default class WinScene extends Phaser.Scene {
     constructor() {
@@ -40,7 +41,14 @@ export default class WinScene extends Phaser.Scene {
                 fontStyle: 'bold'
             }).setOrigin(0.5).setDepth(4000);
 
-            this.tweens.add({ targets: achText, alpha: 0, delay: 2000, duration: 800, onComplete: () => achText.destroy() });
+            this.tweens.add({
+                targets: achText,
+                alpha: 0,
+                delay: 2000,
+                duration: 800,
+                useFrames: false,
+                onComplete: () => achText.destroy()
+            });
         }
 
         // Get gold from passed data (will be set by the calling level scene)
@@ -60,7 +68,8 @@ export default class WinScene extends Phaser.Scene {
             targets: title,
             y: height / 2 - 140,
             duration: 600,
-            ease: 'Elastic.easeOut'
+            ease: 'Elastic.easeOut',
+            useFrames: false
         });
 
         // Subtitle
@@ -100,12 +109,24 @@ export default class WinScene extends Phaser.Scene {
 
         goldDisplay.setDepth(3000);
 
+        // Award skill points and show skill tree
+        SkillTreeManager.initSkills();
+        SkillTreeManager.addSkillPoints(SkillTreeManager.SKILL_POINTS_PER_LEVEL);
+
+        // Skill points awarded message
+        const skillPointText = this.add.text(width / 2, height / 2 + 80, `+${SkillTreeManager.SKILL_POINTS_PER_LEVEL} SKILL POINTS EARNED!`, {
+            fontSize: '20px',
+            fill: '#FFD700',
+            fontFamily: 'Arial',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(3000);
+
         // Button logic based on level
         if (this.levelType === 'MainScene') {
-            // Level 1 complete - show "Next Level" and "Menu"
-            this.createButton(width / 2 - 180, height / 2 + 140, 'NEXT LEVEL', '#7c3aed', () => {
+            // Level 1 complete - show "Skill Tree" and "Menu"
+            this.createButton(width / 2 - 180, height / 2 + 140, 'SKILL TREE', '#7c3aed', () => {
                 this.scene.stop('MainScene');
-                this.scene.start('Level2Scene');
+                this.scene.start('SkillTreeScene', { nextScene: 'Level2Scene', level: 2 });
             });
 
             this.createButton(width / 2 + 180, height / 2 + 140, 'MENU', '#6366f1', () => {
@@ -113,10 +134,10 @@ export default class WinScene extends Phaser.Scene {
                 this.scene.start('MenuScene');
             });
         } else if (this.levelType === 'Level2Scene') {
-            // Level 2 complete - show "Next Level" (Level 3) and "Menu"
-            this.createButton(width / 2 - 180, height / 2 + 140, 'NEXT LEVEL', '#7c3aed', () => {
+            // Level 2 complete - show "Skill Tree" and "Menu"
+            this.createButton(width / 2 - 180, height / 2 + 140, 'SKILL TREE', '#7c3aed', () => {
                 this.scene.stop('Level2Scene');
-                this.scene.start('Level3Scene');
+                this.scene.start('SkillTreeScene', { nextScene: 'Level3Scene', level: 3 });
             });
 
             this.createButton(width / 2 + 180, height / 2 + 140, 'MENU', '#6366f1', () => {
@@ -124,10 +145,10 @@ export default class WinScene extends Phaser.Scene {
                 this.scene.start('MenuScene');
             });
         } else if (this.levelType === 'Level3Scene') {
-            // Level 3 complete - show "Play Again" and "Menu"
-            this.createButton(width / 2 - 180, height / 2 + 140, 'PLAY AGAIN', '#7c3aed', () => {
+            // Level 3 complete - show "Skill Tree" and "Menu"
+            this.createButton(width / 2 - 180, height / 2 + 140, 'SKILL TREE', '#7c3aed', () => {
                 this.scene.stop('Level3Scene');
-                this.scene.start('Level3Scene');
+                this.scene.start('SkillTreeScene', { nextScene: 'LevelSelectScene', level: 1 });
             });
 
             this.createButton(width / 2 + 180, height / 2 + 140, 'MENU', '#6366f1', () => {

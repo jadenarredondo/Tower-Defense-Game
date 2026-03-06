@@ -1,6 +1,7 @@
 import Tower from './Tower.js';
 import AudioManager from './AudioManager.js';
 import EffectsManager from './EffectsManager.js';
+import SkillTreeManager from './SkillTreeManager.js';
 
 export default class MainScene extends Phaser.Scene {
     constructor() {
@@ -11,8 +12,8 @@ export default class MainScene extends Phaser.Scene {
     }
 
     preload() {
-        // Load tile assets
-        for (let i = 1; i <= 5; i++) this.load.image(`grass${i}`, `assets/Tiles/grass${i}.png`);
+        // Load grass tiles (support optional `grass_new` replacement)
+        this.load.image('grass_new', 'assets/Tiles/grass_new.png');
         this.load.image('stone_horizontal','assets/Tiles/stone_horizontal.png');
         this.load.image('stone_vertical','assets/Tiles/stone_vertical.png');
         this.load.image('corner_tl','assets/Tiles/corner_tl.png');
@@ -20,18 +21,19 @@ export default class MainScene extends Phaser.Scene {
         this.load.image('corner_bl','assets/Tiles/corner_bl.png');
         this.load.image('corner_br','assets/Tiles/corner_br.png');
 
-        // Load decoration assets
+        // Load core decoration assets
         this.load.image('tree1','assets/Decorations/tree1.png');
         this.load.image('tree2','assets/Decorations/tree2.png');
         this.load.image('rock1','assets/Decorations/rock1.png');
         this.load.image('rock2','assets/Decorations/rock2.png');
-        this.load.image('temple1','assets/Decorations/ruined_temple1.png');
-        this.load.image('temple2','assets/Decorations/ruined_temple2.png');
-        this.load.image('temple3','assets/Decorations/ruined_temple3.png');
+        // Bush spritesheets (8 frames each, 1024x128 -> 8x128 frames)
+        this.load.spritesheet('Bushe1','assets/Decorations/Bushe1.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('Bushe2','assets/Decorations/Bushe2.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('Bushe3','assets/Decorations/Bushe3.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('Bushe4','assets/Decorations/Bushe4.png', { frameWidth: 128, frameHeight: 128 });
 
         // Load enemy assets from new Enemies folder
         this.load.image('enemy','assets/Enemies/enemy.png');
-        // load flying spritesheets globally so other scenes can reuse
         this.load.spritesheet('flying_walk','assets/Enemies/flying_walk.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('flying_fly','assets/Enemies/flying_fly.png', { frameWidth: 128, frameHeight: 128 });
         this.load.spritesheet('flying_hurt','assets/Enemies/flying_hurt.png', { frameWidth: 128, frameHeight: 128 });
@@ -41,12 +43,14 @@ export default class MainScene extends Phaser.Scene {
         this.load.spritesheet('tower_izanami','assets/Tower/Izanami.png', { frameWidth: 64, frameHeight: 64 });
         this.load.spritesheet('tower_susanoo','assets/Tower/Susanoo.png', { frameWidth: 64, frameHeight: 64 });
         this.load.image('tower_farm','assets/Tower/shrine_farm.png');
-        // TODO: Load susanoo_water spritesheet when asset is added
+        this.load.image('tower_placement','assets/Tower Placement/tower_placement.png');
 
         this.load.on('complete', () => {
-            // Apply pixel filter to all textures
+            // Apply pixel filter to critical textures
             ['enemy', 'flying_walk', 'flying_fly', 'flying_hurt', 'flying_dead', 
-             'tower_izanami', 'tower_susanoo', 'tower_farm'].forEach(key => {
+             'tower_izanami', 'tower_susanoo', 'tower_farm', 'grass_new',
+             'Bushe1','Bushe2','Bushe3','Bushe4'
+            ].forEach(key => {
                 if (this.textures.exists(key)) {
                     this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
                 }
@@ -55,6 +59,8 @@ export default class MainScene extends Phaser.Scene {
     }
 
     create() {
+        // round camera pixels to avoid rendering gaps
+        this.cameras.main.roundPixels = true;
         // ---------- AUDIO SETUP ----------
         this.audioManager.resume();
         this.setupAudioControls();
@@ -62,10 +68,15 @@ export default class MainScene extends Phaser.Scene {
         // ---------- EFFECTS SETUP ----------
         this.effectsManager = new EffectsManager(this);
 
+        // bushes are static images now, no animations required
+
         // ---------- CONFIG ----------
         this.tileSize = 80;
         const MAP_WIDTH = 40;
         const MAP_HEIGHT = 22;
+        // store for methods that run later
+        this.mapWidth = MAP_WIDTH;
+        this.mapHeight = MAP_HEIGHT;
 
         // ---------- CAMERA ----------
         this.cameras.main.setBounds(0,0,MAP_WIDTH*this.tileSize,MAP_HEIGHT*this.tileSize);
@@ -101,11 +112,15 @@ export default class MainScene extends Phaser.Scene {
         this.gold = 200;
         this.baseGoldReward = 10;
 
+        // Initialize skill modifiers
+        SkillTreeManager.initSkills();
+        this.skillModifiers = SkillTreeManager.getActiveModifiers();
+
         // Tower types definition
         this.towerTypes = {
-            basic: { name: 'Izanami', image: 'tower_izanami', cost: 50, damage: 1, range: 220, attackSpeed: 500, attackSpeedMult: 1, scaleMult: 1, description: 'Reliable tower', frames: 15 },
-            projectile: { name: 'Susanoo', image: 'tower_susanoo', cost: 100, damage: 4, range: 200, attackSpeed: 350, attackSpeedMult: 0.7, scaleMult: 1.5, description: 'Water cannon', frames: 15, projectile: 'susanoo_water' },
-            farm: { name: 'Farm', image: 'tower_farm', cost: 50, damage: 0, range: 10, attackSpeed: 1000, attackSpeedMult: 1.6, scaleMult: 1, moneyGain: 5, description: 'Income generator', frames: 1 }
+            basic: { name: 'Izanami', image: 'tower_izanami', cost: Math.floor(50 * this.skillModifiers.costMultiplier), damage: 1 * this.skillModifiers.damageMultiplier, range: 220 * this.skillModifiers.rangeMultiplier, attackSpeed: 500 / this.skillModifiers.attackSpeedMultiplier, attackSpeedMult: 1, scaleMult: 1, description: 'Reliable tower', frames: 15 },
+            projectile: { name: 'Susanoo', image: 'tower_susanoo', cost: Math.floor(100 * this.skillModifiers.costMultiplier), damage: 4 * this.skillModifiers.damageMultiplier, range: 200 * this.skillModifiers.rangeMultiplier, attackSpeed: 350 / this.skillModifiers.attackSpeedMultiplier, attackSpeedMult: 0.7, scaleMult: 1.5, description: 'Water cannon', frames: 15, projectile: 'susanoo_water' },
+            farm: { name: 'Farm', image: 'tower_farm', cost: Math.floor(50 * this.skillModifiers.costMultiplier), damage: 0, range: 10, attackSpeed: 1000, attackSpeedMult: 1.6, scaleMult: 1, moneyGain: 5 * this.skillModifiers.goldMultiplier, description: 'Income generator', frames: 1 }
         };
         this.selectedTowerType = 'basic';
 
@@ -153,110 +168,217 @@ export default class MainScene extends Phaser.Scene {
         this._winTriggered = false;
         this._debugLogged = false;
 
+        // ---------- INITIALIZE TOWERS & ENEMIES ----------
+        // Initialize early so update() doesn't fail before async setup completes
+        this.enemies = this.add.group();
+        // initialize spatial index used by towers
+        this.initEnemyBuckets();
+        this.towers = [];
+        this.selectedTower = null;
+
         // ---------- MAP GRASS ----------
-        const grassKeys = ['grass1','grass2','grass3','grass4','grass5'];
-        for(let y=0;y<MAP_HEIGHT;y++){
-            for(let x=0;x<MAP_WIDTH;x++){
-                this.add.image(x*this.tileSize+this.tileSize/2, y*this.tileSize+this.tileSize/2,
-                    Phaser.Utils.Array.GetRandom(grassKeys))
-                    .setDisplaySize(this.tileSize,this.tileSize).setDepth(y);
+        // Draw grass into a single RenderTexture to prevent seams and reduce draw calls.
+        // Process in chunks across multiple frames to avoid freezing.
+        const grassRT = this.add.renderTexture(0, 0, MAP_WIDTH * this.tileSize, MAP_HEIGHT * this.tileSize)
+            .setOrigin(0)
+            .setDepth(0);
+        const grassKey = 'grass_new';
+        const brush = this.add.image(0, 0, grassKey)
+            .setDisplaySize(this.tileSize, this.tileSize)
+            .setOrigin(0)
+            .setVisible(false);
+        
+        // Process grass in chunks of rows to avoid frame freezing
+        const grassChunkSize = 4; // Process 4 rows per frame
+        let grassY = 0;
+        const processGrassChunk = () => {
+            const endY = Math.min(grassY + grassChunkSize, MAP_HEIGHT);
+            for (let y = grassY; y < endY; y++) {
+                for (let x = 0; x < MAP_WIDTH; x++) {
+                    const tx = x * this.tileSize;
+                    const ty = y * this.tileSize;
+                    grassRT.draw(brush, tx, ty);
+                }
             }
-        }
-
-        // ---------- PATH ----------
-        this.pathNodes=[
-            {x:0,y:11},{x:6,y:11},{x:6,y:4},{x:14,y:4},
-            {x:14,y:16},{x:24,y:16},{x:24,y:8},{x:34,y:8},{x:39,y:8}
-        ];
-
-        this.path = [];
-        for(let i=0;i<this.pathNodes.length-1;i++){
-            const a=this.pathNodes[i], b=this.pathNodes[i+1];
-            const dx=Math.sign(b.x-a.x), dy=Math.sign(b.y-a.y);
-            if(dx!==0){
-                for(let x=a.x;x!==b.x+dx;x+=dx) this.path.push({x, y:a.y});
+            grassY = endY;
+            if (grassY < MAP_HEIGHT) {
+                this.time.delayedCall(0, processGrassChunk, [], this);
             } else {
-                for(let y=a.y;y!==b.y+dy;y+=dy) this.path.push({x:a.x, y});
+                brush.destroy();
+                grassRT.setScrollFactor(1);
+                // Continue with other map setup
+                setupPathAndDecorations.call(this);
+            }
+        };
+        processGrassChunk();
+
+        // Define functionality that runs after grass is loaded
+        const setupPathAndDecorations = function() {
+
+            // ---------- PATH ----------
+            this.pathNodes=[
+                {x:0,y:11},{x:6,y:11},{x:6,y:4},{x:14,y:4},
+                {x:14,y:16},{x:24,y:16},{x:24,y:8},{x:34,y:8},{x:39,y:8}
+            ];
+
+            this.path = [];
+            for(let i=0;i<this.pathNodes.length-1;i++){
+                const a=this.pathNodes[i], b=this.pathNodes[i+1];
+                const dx=Math.sign(b.x-a.x), dy=Math.sign(b.y-a.y);
+                if(dx!==0){
+                    for(let x=a.x;x!==b.x+dx;x+=dx) this.path.push({x, y:a.y});
+                } else {
+                    for(let y=a.y;y!==b.y+dy;y+=dy) this.path.push({x:a.x, y});
+                }
+            }
+
+            // Path tiles
+            const pathSet = new Set(this.path.map(p=>`${p.x},${p.y}`));
+            // keep around for placement logic later
+            this.pathSet = pathSet;
+            for(const p of this.path){
+                const L=pathSet.has(`${p.x-1},${p.y}`), R=pathSet.has(`${p.x+1},${p.y}`);
+                const U=pathSet.has(`${p.x},${p.y-1}`), D=pathSet.has(`${p.x},${p.y+1}`);
+                let key;
+                if((L||R)&&(U||D)){
+                    if(U&&L) key='corner_tl';
+                    else if(U&&R) key='corner_tr';
+                    else if(D&&L) key='corner_bl';
+                    else if(D&&R) key='corner_br';
+                } else key=(L||R)?'stone_horizontal':'stone_vertical';
+                this.add.image(p.x*this.tileSize+this.tileSize/2, p.y*this.tileSize+this.tileSize/2, key)
+                    .setDisplaySize(this.tileSize,this.tileSize).setDepth(p.y+1);
+            }
+
+        // ---------- TOWER PLACEMENT ZONES ----------
+        // Automatically generate possible locations around the path (sides and corners).
+        // After gathering all candidates we filter them so they are spaced apart, then
+        // convert to world coordinates with a small random offset for visual variety.
+        let candidateZones = [];
+        {
+            const zoneSet = new Set();
+            const offsets = [
+                {dx:-1,dy:0},{dx:1,dy:0},{dx:0,dy:-1},{dx:0,dy:1},
+                {dx:-1,dy:-1},{dx:1,dy:-1},{dx:-1,dy:1},{dx:1,dy:1}
+            ];
+            for (const p of this.path) {
+                for (const off of offsets) {
+                    const nx = p.x + off.dx;
+                    const ny = p.y + off.dy;
+                    const key = `${nx},${ny}`;
+                    if (
+                        nx >= 0 && nx < MAP_WIDTH && ny >= 0 && ny < MAP_HEIGHT &&
+                        !pathSet.has(key) &&
+                        !zoneSet.has(key)
+                    ) {
+                        zoneSet.add(key);
+                        candidateZones.push({x: nx, y: ny});
+                    }
+                }
             }
         }
-
-        // Path tiles
-        const pathSet = new Set(this.path.map(p=>`${p.x},${p.y}`));
-        for(const p of this.path){
-            const L=pathSet.has(`${p.x-1},${p.y}`), R=pathSet.has(`${p.x+1},${p.y}`);
-            const U=pathSet.has(`${p.x},${p.y-1}`), D=pathSet.has(`${p.x},${p.y+1}`);
-            let key;
-            if((L||R)&&(U||D)){
-                if(U&&L) key='corner_tl';
-                else if(U&&R) key='corner_tr';
-                else if(D&&L) key='corner_bl';
-                else if(D&&R) key='corner_br';
-            } else key=(L||R)?'stone_horizontal':'stone_vertical';
-            this.add.image(p.x*this.tileSize+this.tileSize/2, p.y*this.tileSize+this.tileSize/2, key)
-                .setDisplaySize(this.tileSize,this.tileSize).setDepth(p.y+1);
+        // shuffle so filtering picks random ones first
+        Phaser.Utils.Array.Shuffle(candidateZones);
+        const MIN_DIST = this.tileSize * 1.5;
+        let spaced = [];
+        for (const z of candidateZones) {
+            let tooClose = false;
+            for (const ex of spaced) {
+                const dx = (z.x - ex.x) * this.tileSize;
+                const dy = (z.y - ex.y) * this.tileSize;
+                if (dx*dx + dy*dy < MIN_DIST*MIN_DIST) { tooClose = true; break; }
+            }
+            if (!tooClose) spaced.push(z);
+        }
+        // if spacing removed too many, add extras until we hit max (allow small clustering)
+        const MAX_ZONES = 10;
+        if (spaced.length < MAX_ZONES) {
+            for (const z of candidateZones) {
+                if (spaced.length >= MAX_ZONES) break;
+                if (!spaced.includes(z)) spaced.push(z);
+            }
+        }
+        const jitter = this.tileSize * 0.3;
+        this.towerZones = spaced.map(z => {
+            const worldX = z.x * this.tileSize + this.tileSize/2 + Phaser.Math.Between(-jitter, jitter);
+            const worldY = z.y * this.tileSize + this.tileSize/2 + Phaser.Math.Between(-jitter, jitter);
+            return {gx: z.x, gy: z.y, x: worldX, y: worldY};
+        });
+        if(this.debug) console.log(`🧱 Generated ${this.towerZones.length} spaced tower placement zones`);
+        // cap number of placement zones for level 1
+        if (this.towerZones.length > MAX_ZONES) {
+            Phaser.Utils.Array.Shuffle(this.towerZones);
+            this.towerZones.length = MAX_ZONES;
+            if(this.debug) console.log(`🔒 Capped tower zones to ${MAX_ZONES}`);
         }
 
         // ---------- DECORATIONS ----------
+        // Place decorations in chunks to avoid frame freezing
         const used = new Set(this.path.map(p=>`${p.x},${p.y}`));
-        const place = (count, keys, scale) => {
-            let placed=0;
-            while(placed<count){
-                const x=Phaser.Math.Between(0,MAP_WIDTH-1);
-                const y=Phaser.Math.Between(0,MAP_HEIGHT-1);
-                const id=`${x},${y}`;
-                if(!used.has(id)){
-                    this.add.image(x*this.tileSize+this.tileSize/2, y*this.tileSize+this.tileSize/2,
-                        Phaser.Utils.Array.GetRandom(keys)).setScale(scale).setDepth(y+10);
-                    used.add(id); placed++;
+        // also treat tower zones as off-limits for decorations so they remain visible
+        for (const z of this.towerZones) used.add(`${z.gx},${z.gy}`);
+        
+        this.decorationQueue = [
+            { count: 65, keys: ['tree1','tree2'], scale: 1.3, type: 'image' },
+            { count: 40, keys: ['rock1','rock2'], scale: 0.8, type: 'image' },
+            { count: 30, keys: ['Bushe1','Bushe2','Bushe3','Bushe4'], scale: 1.0, type: 'bush' }
+        ];
+        
+        // decorate everything immediately; previous chunking slowed perceived load time
+        let decorQueueIndex = 0;
+        const placeDecorationsChunk = () => {
+            if (decorQueueIndex >= this.decorationQueue.length) {
+                // Decorations done, continue with rest of setup
+                finishMapSetup.call(this);
+                return;
+            }
+
+            const decorConfig = this.decorationQueue[decorQueueIndex];
+            let placed = 0;
+            // put all remaining items in one shot
+            const targetCount = decorConfig.count;
+
+            while (placed < targetCount && placed < decorConfig.count) {
+                const x = Phaser.Math.Between(0, MAP_WIDTH-1);
+                const y = Phaser.Math.Between(0, MAP_HEIGHT-1);
+                const id = `${x},${y}`;
+                if (!used.has(id)) {
+                    const key = Phaser.Utils.Array.GetRandom(decorConfig.keys);
+                    if (decorConfig.type === 'bush') {
+                        this.add.sprite(x*this.tileSize+this.tileSize/2, y*this.tileSize+this.tileSize/2, key, 0)
+                            .setScale(decorConfig.scale).setDepth(y+11);
+                    } else {
+                        this.add.image(x*this.tileSize+this.tileSize/2, y*this.tileSize+this.tileSize/2, key)
+                            .setScale(decorConfig.scale).setDepth(y+10);
+                    }
+                    used.add(id);
+                    placed++;
                 }
             }
+
+            decorConfig.count -= placed;
+            if (decorConfig.count <= 0) {
+                decorQueueIndex++;
+            }
+
+            // continue immediately
+            placeDecorationsChunk();
         };
-        place(65,['tree1','tree2'],1.3);
-        place(40,['rock1','rock2'],0.8);
-        place(10,['temple1','temple2','temple3'],1.15);
 
-        // ---------- ENEMIES ----------
-        this.enemies = this.add.group();
+        placeDecorationsChunk();
+        };
 
-        // ---------- TOWER PLACEMENT ZONES ----------
-        this.towerZones = [
-            {x: 1, y: 10},
-            {x: 1, y: 12},
-            {x: 3, y: 9},
-            {x: 3, y: 13},
-            {x: 6, y: 11},
-            {x: 8, y: 5},
-            {x: 10, y: 7},
-            {x: 10, y: 13},
-            {x: 13, y: 4},
-            {x: 13, y: 13},
-            {x: 18, y: 5},
-            {x: 18, y: 13},
-            {x: 23, y: 14},
-            {x: 25, y: 7},
-            {x: 29, y: 6},
-            {x: 35, y: 7},
-            {x: 40, y: 10}
-        ];
-
-        // Draw tower placement zones
-        for (const zone of this.towerZones) {
-            this.add.circle(zone.x * this.tileSize + this.tileSize/2, zone.y * this.tileSize + this.tileSize/2, 25, 0x00ff00, 0.3)
-                .setDepth(10);
-        }
+        // ---------- FINISH MAP SETUP ----------
+        const finishMapSetup = function() {
 
         // ---------- TOWERS ----------
-        this.towers = [];
         this.selectedTower = null;
         this.input.on('pointerdown', pointer => {
             const towerPos = this.findNearestZone(pointer.worldX, pointer.worldY);
             if (!towerPos) return;
 
-            // Check if tower already exists at this location
-            const existingTower = this.towers.find(t => 
-                Math.abs(t.sprite.x - towerPos.x) < 5 && 
-                Math.abs(t.sprite.y - towerPos.y) < 5
-            );
+            // Check if a tower already occupies this grid cell
+            const existingTower = this.towers.find(t => t.gx === towerPos.gx && t.gy === towerPos.gy);
 
             if (existingTower) {
                 // Show upgrade menu for this tower
@@ -267,6 +389,8 @@ export default class MainScene extends Phaser.Scene {
                 const towerConfig = this.towerTypes[this.selectedTowerType];
                 if (this.gold >= towerConfig.cost) {
                     const tower = new Tower(this, towerPos.x, towerPos.y, towerConfig, this.audioManager);
+                    tower.gx = towerPos.gx;
+                    tower.gy = towerPos.gy;
                     this.towers.push(tower);
                     this.gold -= towerConfig.cost;
                     this.audioManager.playTowerPlace();
@@ -274,10 +398,10 @@ export default class MainScene extends Phaser.Scene {
                     this.selectedTower = null;
                     this.hideTowerUpgradeMenu();
                 } else {
-                    console.log(`❌ Not enough gold! Need ${towerConfig.cost}, have ${this.gold}`);
+                    if (this.debug) console.log(`❌ Not enough gold! Need ${towerConfig.cost}, have ${this.gold}`);
                 }
             } else {
-                console.log(`❌ Max towers reached! Sell or upgrade existing towers instead.`);
+                if (this.debug) console.log(`❌ Max towers reached! Sell or upgrade existing towers instead.`);
             }
         });
 
@@ -332,9 +456,16 @@ export default class MainScene extends Phaser.Scene {
 
         // ---------- START FIRST WAVE ----------
         this.startNextWave();
+        
+        }; // End of finishMapSetup function
+        
+        // Note: Map setup happens asynchronously across multiple frames
+        // (Grass, path, and decorations load in chunks to prevent freezing)
     }
 
     update() {
+        // refresh bucket grid each frame before towers query it
+        this.rebuildEnemyBuckets();
         // Keyboard camera movement (arrow keys and WASD)
         if (this.keyW.isDown) this.cameras.main.scrollY -= this.cameraSpeed;
         if (this.keyS.isDown) this.cameras.main.scrollY += this.cameraSpeed;
@@ -354,10 +485,15 @@ export default class MainScene extends Phaser.Scene {
             
             this.gold += totalFarmGold;
             if (totalFarmGold > 0 && this.debug) {
-                console.log(`🌾 Farm tick: +${totalFarmGold} gold (Total: ${this.gold})`);
+                if (this.debug) console.log(`🌾 Farm tick: +${totalFarmGold} gold (Total: ${this.gold})`);
             }
             this.lastFarmTick = now;
             this.updateTowerSelectionUI();
+        }
+
+        // Update towers (rotate toward enemies, stop when none visible)
+        for (const tower of this.towers) {
+            if (typeof tower.update === 'function') tower.update();
         }
 
         // Update UI
@@ -368,17 +504,17 @@ export default class MainScene extends Phaser.Scene {
             if(!this._winTriggered) {
                 this._winTriggered = true;
                 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━');
-                console.log('🎉 VICTORY CONDITION MET!');
-                console.log(`Wave: ${this.currentWave}/${this.maxWaves}`);
-                console.log(`Enemies: ${this.enemiesAlive}`);
-                console.log(`Health: ${this.playerHealth}`);
+                if (this.debug) console.log('🎉 VICTORY CONDITION MET!');
+                if (this.debug) console.log(`Wave: ${this.currentWave}/${this.maxWaves}`);
+                if (this.debug) console.log(`Enemies: ${this.enemiesAlive}`);
+                if (this.debug) console.log(`Health: ${this.playerHealth}`);
                 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━');
                 this.time.delayedCall(500, ()=> this.winGame());
             }
         } else if(this.currentWave >= this.maxWaves) {
             // Debug info if win condition not met
             if(!this._debugLogged) {
-                console.log(`Wave complete check: Wave=${this.currentWave}, SpawningDone=${this.waveSpawningComplete}, Enemies=${this.enemiesAlive}, Health=${this.playerHealth}`);
+                if (this.debug) console.log(`Wave complete check: Wave=${this.currentWave}, SpawningDone=${this.waveSpawningComplete}, Enemies=${this.enemiesAlive}, Health=${this.playerHealth}`);
                 this._debugLogged = true;
             }
         }
@@ -394,7 +530,7 @@ export default class MainScene extends Phaser.Scene {
                 const speed = parseFloat(e.target.getAttribute('data-speed'));
                 if (this.debug) console.log(`⚡ SPEED BUTTON CLICKED: ${speed}x`);
                 scene.time.timeScale = speed;
-                console.log(`✓ Game speed changed to: ${speed}x`);
+                if (this.debug) console.log(`✓ Game speed changed to: ${speed}x`);
                 
                 // Update active state
                 document.querySelectorAll('.speed-btn').forEach(btn => {
@@ -510,28 +646,33 @@ export default class MainScene extends Phaser.Scene {
             }
         }
 
-        // Update gold display with pulse animation
+        // Update gold display with pulse animation only when changed
         if (this.goldElement) {
             this.goldElement.textContent = `${this.gold}`;
-            // Add pulse class for animation
-            this.goldElement.classList.remove('pulse');
-            // Trigger reflow to restart animation
-            void this.goldElement.offsetWidth;
-            this.goldElement.classList.add('pulse');
+            if (this.gold !== this.prevGold) {
+                this.goldElement.classList.remove('pulse');
+                void this.goldElement.offsetWidth;
+                this.goldElement.classList.add('pulse');
+            }
+            this.prevGold = this.gold;
         }
     }
 
+    // conversion helpers for grid-aligned placement
     findNearestZone(x, y) {
-        const ZONE_RADIUS = 50;
-        for (const zone of this.towerZones) {
-            const zoneWorldX = zone.x * this.tileSize + this.tileSize/2;
-            const zoneWorldY = zone.y * this.tileSize + this.tileSize/2;
-            const dist = Phaser.Math.Distance.Between(x, y, zoneWorldX, zoneWorldY);
-            if (dist <= ZONE_RADIUS) {
-                return {x: zoneWorldX, y: zoneWorldY};
-            }
-        }
-        return null;
+        // compute grid position under pointer
+        const gx = Math.floor(x / this.tileSize);
+        const gy = Math.floor(y / this.tileSize);
+        const mw = this.mapWidth, mh = this.mapHeight;
+        if (gx < 0 || gy < 0 || gx >= mw || gy >= mh) return null;
+        // disallow path tiles
+        if (this.pathSet && this.pathSet.has(`${gx},${gy}`)) return null;
+        return {
+            x: gx * this.tileSize + this.tileSize/2,
+            y: gy * this.tileSize + this.tileSize/2,
+            gx,
+            gy
+        };
     }
 
     setupKeyboardHotkeys() {
@@ -655,27 +796,73 @@ export default class MainScene extends Phaser.Scene {
             this.path[0].x*this.tileSize+this.tileSize/2 + Phaser.Math.Between(-offset,offset),
             this.path[0].y*this.tileSize+this.tileSize/2 + Phaser.Math.Between(-offset,offset),
             'enemy'
-        ).setDisplaySize(this.tileSize*0.5,this.tileSize*0.5).setDepth(1000);
+        ).setDisplaySize(this.tileSize*0.5,this.tileSize*0.5).setDepth(1000).setActive(true).setVisible(true);
 
         enemy.hp = 15 + (this.currentWave * 3);
         enemy.maxHp = enemy.hp;
         enemy.damage = 1 + this.currentWave;
         enemy.pathIndex = 0;
+        enemy._exited = false;
 
         enemy.healthBar = this.add.rectangle(enemy.x, enemy.y-40, 50,8,0x00ff00).setOrigin(0.5).setDepth(1500);
 
         this.enemies.add(enemy);
         this.enemiesAlive++;
+        // bucket structure rebuilt each frame, no individual insertion
 
         this.moveEnemy(enemy);
     }
 
+    // animate enemies past the exit and apply damage
+    handleEnemyEscape(enemy){
+        if(!enemy || enemy._exited || enemy.destroyed) return;
+        enemy._exited = true;
+        enemy.setActive(false);  // Deactivate to prevent further interactions
+
+        this.playerHealth -= enemy.damage;
+        if(enemy.healthBar) enemy.healthBar.destroy();
+        this.enemiesAlive--;
+        console.log(`Enemy escaped! Alive: ${this.enemiesAlive}`);
+
+        // determine exit direction
+        let offX = enemy.x;
+        let offY = enemy.y;
+        if(this.path.length >= 2){
+            const last = this.path[this.path.length-1];
+            const prev = this.path[this.path.length-2];
+            const dx = last.x - prev.x;
+            const dy = last.y - prev.y;
+            offX = last.x*this.tileSize + this.tileSize/2 + dx*this.tileSize*2;
+            offY = last.y*this.tileSize + this.tileSize/2 + dy*this.tileSize*2;
+        }
+        this.tweens.add({
+            targets: enemy,
+            x: offX,
+            y: offY,
+            duration: 300 / this.time.timeScale,
+            ease: 'Linear',
+            onComplete: ()=>{
+                try{ 
+                    if(enemy && !enemy.destroyed) {
+                        enemy.destroy(); 
+                    }
+                }catch(e){}
+                if(this.enemies) this.enemies.remove(enemy);
+                if(this.playerHealth<=0) this.loseGame();
+            }
+        });
+    }
+
     moveEnemy(enemy){
-        if(!enemy.active) return;
-        if(enemy.pathIndex>=this.path.length-1) return;
+        if(!enemy || !enemy.active) return;
+        if(enemy.pathIndex>=this.path.length-1){
+            this.handleEnemyEscape(enemy);
+            return;
+        }
 
         const next = this.path[enemy.pathIndex+1];
-        const duration = Math.max(300, 800 - this.currentWave*80);
+        const baseDuration = Math.max(300, 800 - this.currentWave*80);
+        const duration = baseDuration / this.time.timeScale;
 
         this.tweens.add({
             targets: enemy,
@@ -683,24 +870,62 @@ export default class MainScene extends Phaser.Scene {
             y: next.y*this.tileSize + this.tileSize/2,
             duration: duration,
             ease:'Linear',
-            onUpdate: ()=>{ if(enemy.healthBar) enemy.healthBar.setPosition(enemy.x, enemy.y-40); },
+            useFrames: false,
+            onUpdate: ()=>{ 
+                // Validate enemy still exists before updating
+                if(enemy && enemy.active && enemy.healthBar && !enemy.destroyed) {
+                    enemy.healthBar.setPosition(enemy.x, enemy.y-40);
+                    enemy.setDepth(1000 + enemy.y);
+                }
+            },
             onComplete: ()=>{
+                // Validate enemy still exists before continuing
+                if(!enemy || !enemy.active || enemy.destroyed) return;
                 enemy.pathIndex++;
                 if(enemy.pathIndex>=this.path.length-1){
-                    // Enemy has reached the end of path
-                    this.playerHealth -= enemy.damage;
-                    if(enemy.healthBar) enemy.healthBar.destroy();
-                    enemy.destroy();
-                    this.enemiesAlive--;
-                    console.log(`Enemy escaped! Alive: ${this.enemiesAlive}`);
-                    if(this.playerHealth<=0) {
-                        this.loseGame();
-                    }
+                    this.handleEnemyEscape(enemy);
                 } else {
                     this.moveEnemy(enemy);
                 }
             }
         });
+    }
+
+    // spatial index helpers using grid buckets
+    initEnemyBuckets(bucketSize = 128) {
+        this.bucketSize = bucketSize;
+        this.enemyBuckets = Object.create(null);
+    }
+
+    rebuildEnemyBuckets() {
+        if (!this.enemies) return;
+        this.enemyBuckets = Object.create(null);
+        const size = this.bucketSize;
+        this.enemies.getChildren().forEach(e => {
+            if (!e || !e.active) return;
+            const bx = Math.floor(e.x / size);
+            const by = Math.floor(e.y / size);
+            const key = `${bx},${by}`;
+            if (!this.enemyBuckets[key]) this.enemyBuckets[key] = [];
+            this.enemyBuckets[key].push(e);
+        });
+    }
+
+    queryEnemyBuckets(x, y, range) {
+        if (!this.enemyBuckets) return [];
+        const size = this.bucketSize;
+        const minBx = Math.floor((x - range) / size);
+        const maxBx = Math.floor((x + range) / size);
+        const minBy = Math.floor((y - range) / size);
+        const maxBy = Math.floor((y + range) / size);
+        const results = [];
+        for (let bx = minBx; bx <= maxBx; bx++) {
+            for (let by = minBy; by <= maxBy; by++) {
+                const bucket = this.enemyBuckets[`${bx},${by}`];
+                if (bucket) results.push(...bucket);
+            }
+        }
+        return results;
     }
 
     loseGame(){
@@ -709,7 +934,8 @@ export default class MainScene extends Phaser.Scene {
         this.waveInProgress = false;
         const uiBar = document.getElementById('game-ui');
         if (uiBar) uiBar.style.display = 'none';
-        this.scene.launch('LoseScene');
+        // level 1 failure
+        this.scene.launch('LoseScene', { level: 1 });
         this.scene.pause('MainScene');
     }
 

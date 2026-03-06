@@ -27,7 +27,7 @@ export default class TutorialScene extends Phaser.Scene {
         // Tutorial content - now with more advanced tips
         const tutorials = [
             { title: '💰 FARMING', desc: 'Earn 2-3 gold per second passively' },
-            { title: '🎯 PLACEMENT', desc: 'Click green zones to place towers' },
+            { title: '🎯 PLACEMENT', desc: 'Click anywhere off the path to place towers' },
             { title: '⬆️ UPGRADE', desc: 'Click existing towers to upgrade (max 3 per type)' },
             { title: '🌊 WAVES', desc: 'Defeat all enemies in each wave to progress' },
             { title: '❤️ HEALTH', desc: 'Protect your base! 0 health = game over' },

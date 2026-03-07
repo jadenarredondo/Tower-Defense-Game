@@ -3,19 +3,71 @@
  * Uses Web Audio API for synthetic sound generation
  */
 export default class AudioManager {
+    static instance = null;
+
+    static getInstance() {
+        if (!AudioManager.instance) {
+            AudioManager.instance = new AudioManager();
+        }
+        return AudioManager.instance;
+    }
+
     constructor() {
+        if (AudioManager.instance) {
+            return AudioManager.instance;
+        }
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         } catch (e) {
             console.warn('Web Audio API not available');
             this.audioContext = null;
         }
-        this.isMuted = false;
-        this.masterVolume = 0.3;
-        this.soundVolume = 0.4;
-        this.musicVolume = 0.25;
+        this.loadSettings();
         this.backgroundMusic = null;
+        this.backgroundMusicGainNode = null;  // Master gain for all background music
         this.sounds = {};
+        AudioManager.instance = this;
+    }
+
+    loadSettings() {
+        try {
+            const settings = localStorage.getItem('audioSettings');
+            if (settings) {
+                const parsed = JSON.parse(settings);
+                this.isMuted = parsed.isMuted || false;
+                this.masterVolume = parsed.masterVolume || 0.5;
+                this.soundVolume = parsed.soundVolume || 0.4;
+                this.musicVolume = parsed.musicVolume || 0.6;
+            } else {
+                this.isMuted = false;
+                this.masterVolume = 0.5;
+                this.soundVolume = 0.4;
+                this.musicVolume = 0.6;
+            }
+        } catch (e) {
+            console.warn('Failed to load audio settings from localStorage:', e);
+            // Clear corrupted data
+            localStorage.removeItem('audioSettings');
+            // Reset to defaults
+            this.isMuted = false;
+            this.masterVolume = 0.5;
+            this.soundVolume = 0.4;
+            this.musicVolume = 0.6;
+        }
+    }
+
+    saveSettings() {
+        try {
+            const settings = {
+                isMuted: this.isMuted,
+                masterVolume: this.masterVolume,
+                soundVolume: this.soundVolume,
+                musicVolume: this.musicVolume
+            };
+            localStorage.setItem('audioSettings', JSON.stringify(settings));
+        } catch (e) {
+            console.warn('Failed to save audio settings to localStorage:', e);
+        }
     }
 
     /**
@@ -25,6 +77,16 @@ export default class AudioManager {
         if (!this.audioContext || this.isMuted) return;
         if (this.backgroundMusic) this.backgroundMusic.stop();
         
+        // Create master gain node for background music if it doesn't exist
+        if (!this.backgroundMusicGainNode) {
+            this.backgroundMusicGainNode = this.audioContext.createGain();
+            this.backgroundMusicGainNode.connect(this.audioContext.destination);
+            // Set initial volume
+            const initialVolume = this.musicVolume * this.masterVolume;
+            this.backgroundMusicGainNode.gain.setValueAtTime(initialVolume, this.audioContext.currentTime);
+            console.log('🎵 Background music gain node created with volume:', initialVolume);
+        }
+        
         const now = this.audioContext.currentTime;
         const beatDuration = 1.0;  // Slower, more meditative pace
         
@@ -33,13 +95,13 @@ export default class AudioManager {
             const osc = this.audioContext.createOscillator();
             const gain = this.audioContext.createGain();
             osc.connect(gain);
-            gain.connect(this.audioContext.destination);
+            gain.connect(this.backgroundMusicGainNode);  // Connect to master gain
             osc.type = 'sine';
             osc.frequency.setValueAtTime(freq, startTime);
             // Smooth attack and release for peaceful effect
             gain.gain.setValueAtTime(0, startTime);
-            gain.gain.linearRampToValueAtTime(0.08 * this.musicVolume * this.masterVolume, startTime + 0.5);
-            gain.gain.linearRampToValueAtTime(0.06 * this.musicVolume * this.masterVolume, startTime + duration - 0.5);
+            gain.gain.linearRampToValueAtTime(0.15, startTime + 0.5);
+            gain.gain.linearRampToValueAtTime(0.12, startTime + duration - 0.5);
             gain.gain.linearRampToValueAtTime(0, startTime + duration);
             osc.start(startTime);
             osc.stop(startTime + duration);
@@ -50,12 +112,12 @@ export default class AudioManager {
             const osc = this.audioContext.createOscillator();
             const gain = this.audioContext.createGain();
             osc.connect(gain);
-            gain.connect(this.audioContext.destination);
+            gain.connect(this.backgroundMusicGainNode);  // Connect to master gain
             osc.type = 'sine';
             osc.frequency.setValueAtTime(freq, startTime);
             gain.gain.setValueAtTime(0, startTime);
-            gain.gain.linearRampToValueAtTime(0.05 * this.musicVolume * this.masterVolume, startTime + 0.3);
-            gain.gain.linearRampToValueAtTime(0.04 * this.musicVolume * this.masterVolume, startTime + duration - 0.3);
+            gain.gain.linearRampToValueAtTime(0.12, startTime + 0.3);
+            gain.gain.linearRampToValueAtTime(0.10, startTime + duration - 0.3);
             gain.gain.linearRampToValueAtTime(0, startTime + duration);
             osc.start(startTime);
             osc.stop(startTime + duration);
@@ -96,6 +158,11 @@ export default class AudioManager {
         if (this.backgroundMusic) {
             this.backgroundMusic.stop();
             this.backgroundMusic = null;
+        }
+        // Mute the master gain immediately
+        if (this.backgroundMusicGainNode) {
+            const now = this.audioContext.currentTime;
+            this.backgroundMusicGainNode.gain.setValueAtTime(0, now);
         }
     }
 
@@ -392,6 +459,8 @@ export default class AudioManager {
      */
     toggleMute() {
         this.isMuted = !this.isMuted;
+        this.updateBackgroundMusicVolume();
+        this.saveSettings();
         return this.isMuted;
     }
 
@@ -400,6 +469,8 @@ export default class AudioManager {
      */
     setMasterVolume(val) {
         this.masterVolume = Math.max(0, Math.min(1, val));
+        this.updateBackgroundMusicVolume();
+        this.saveSettings();
     }
 
     /**
@@ -407,6 +478,7 @@ export default class AudioManager {
      */
     setSoundVolume(val) {
         this.soundVolume = Math.max(0, Math.min(1, val));
+        this.saveSettings();
     }
 
     /**
@@ -414,6 +486,36 @@ export default class AudioManager {
      */
     setMusicVolume(val) {
         this.musicVolume = Math.max(0, Math.min(1, val));
+        this.updateBackgroundMusicVolume();
+        this.saveSettings();
+    }
+
+    /**
+     * Update background music volume in real-time
+     */
+    updateBackgroundMusicVolume() {
+        if (!this.audioContext || !this.backgroundMusicGainNode) {
+            console.log('⚠️ Cannot update background music volume - audioContext or gainNode missing');
+            return;
+        }
+        
+        const now = this.audioContext.currentTime;
+        const targetVolume = this.isMuted ? 0 : Math.max(0.001, this.musicVolume * this.masterVolume);
+        
+        console.log('🔊 Volume update - Muted:', this.isMuted, 'Music Vol:', this.musicVolume, 'Master Vol:', this.masterVolume, 'Target:', targetVolume);
+        
+        // Cancel any scheduled changes and set new value
+        this.backgroundMusicGainNode.gain.cancelScheduledValues(now);
+        this.backgroundMusicGainNode.gain.setValueAtTime(targetVolume, now);
+    }
+
+    /**
+     * Set mute state
+     */
+    setMute(muted) {
+        this.isMuted = muted;
+        this.updateBackgroundMusicVolume();
+        return this.isMuted;
     }
 
     /**
@@ -423,5 +525,33 @@ export default class AudioManager {
         if (this.audioContext && this.audioContext.state === 'suspended') {
             this.audioContext.resume();
         }
+    }
+
+    /**
+     * Get master volume (0-1)
+     */
+    getMasterVolume() {
+        return this.masterVolume;
+    }
+
+    /**
+     * Get sound effect volume (0-1)
+     */
+    getSoundVolume() {
+        return this.soundVolume;
+    }
+
+    /**
+     * Get music volume (0-1)
+     */
+    getMusicVolume() {
+        return this.musicVolume;
+    }
+
+    /**
+     * Get mute state
+     */
+    getIsMuted() {
+        return this.isMuted;
     }
 }

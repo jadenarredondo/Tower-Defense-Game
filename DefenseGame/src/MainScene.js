@@ -6,12 +6,16 @@ import SkillTreeManager from './SkillTreeManager.js';
 export default class MainScene extends Phaser.Scene {
     constructor() {
         super('MainScene');
-        this.audioManager = new AudioManager();
+        // Try to get audioManager from registry, create new one if not available
+        this.audioManager = null;
         this.effectsManager = null;
         this.debug = false;
     }
 
     preload() {
+        // Get or create audio manager
+        this.audioManager = AudioManager.getInstance();
+
         // Load grass tiles (support optional `grass_new` replacement)
         this.load.image('grass_new', 'assets/Tiles/grass_new.png');
         this.load.image('stone_horizontal','assets/Tiles/stone_horizontal.png');
@@ -952,6 +956,14 @@ export default class MainScene extends Phaser.Scene {
     setupAudioControls() {
         const muteBtn = document.getElementById('mute-btn');
         const volumeSlider = document.getElementById('volume-slider');
+        
+        // Initialize UI state
+        if (muteBtn) {
+            muteBtn.textContent = this.audioManager.getIsMuted() ? '🔇' : '🔊';
+        }
+        if (volumeSlider) {
+            volumeSlider.value = Math.round(this.audioManager.getMasterVolume() * 100);
+        }
         
         // Store references for cleanup on shutdown
         this.muteClickHandler = () => {

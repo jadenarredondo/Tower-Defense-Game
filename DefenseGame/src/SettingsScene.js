@@ -1,12 +1,17 @@
 import ProgressManager from './ProgressManager.js';
+import AudioManager from './AudioManager.js';
 
 export default class SettingsScene extends Phaser.Scene {
     constructor() {
         super('SettingsScene');
+        this.audioManager = null;
     }
 
     create() {
         const { width, height } = this.scale;
+
+        // Get the audio manager
+        this.audioManager = AudioManager.getInstance();
 
         // ---------- BACKGROUND EFFECT ----------
         this.bgGraphics = this.add.graphics();
@@ -30,7 +35,7 @@ export default class SettingsScene extends Phaser.Scene {
         gradient.destroy();
 
         // ---------- TITLE ----------
-        this.add.text(width / 2, height / 4 - 40, 'SETTINGS', {
+        this.add.text(width / 2, height / 4 - 80, 'SETTINGS', {
             fontSize: '68px',
             color: '#64d5ff',
             fontStyle: 'bold',
@@ -39,9 +44,103 @@ export default class SettingsScene extends Phaser.Scene {
             fontFamily: 'Arial, sans-serif'
         }).setOrigin(0.5);
 
+        // ---------- AUDIO SECTION ----------
+        const audioY = height / 2 - 60;
+        this.add.text(width / 2 - 500, audioY - 50, 'AUDIO SETTINGS', {
+            fontSize: '28px',
+            color: '#64d5ff',
+            fontStyle: 'bold',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0, 0);
+
+        // Master Volume Slider
+        this.masterVolumeControls = this.createVolumeControl(width / 2 - 450, audioY, 'MASTER VOLUME', 
+            this.audioManager?.getMasterVolume() || 0.3, 
+            (val) => {
+                console.log('Setting master volume to:', val);
+                this.audioManager?.setMasterVolume(val);
+                // Update the top bar volume slider
+                const volumeSlider = document.getElementById('volume-slider');
+                if (volumeSlider) {
+                    volumeSlider.value = Math.round(val * 100);
+                }
+            });
+
+        // Sound Volume Slider
+        this.soundVolumeControls = this.createVolumeControl(width / 2 - 450, audioY + 50, 'SOUND VOLUME', 
+            this.audioManager?.getSoundVolume() || 0.4, 
+            (val) => {
+                console.log('Setting sound volume to:', val);
+                this.audioManager?.setSoundVolume(val);
+            });
+
+        // Music Volume Slider
+        this.musicVolumeControls = this.createVolumeControl(width / 2 - 450, audioY + 100, 'MUSIC VOLUME', 
+            this.audioManager?.getMusicVolume() || 0.25, 
+            (val) => {
+                console.log('Setting music volume to:', val);
+                this.audioManager?.setMusicVolume(val);
+            });
+
+        // Mute Button
+        const muteY = audioY + 160;
+        const isMuted = this.audioManager?.getIsMuted() || false;
+        this.muteBtn = this.add.text(width / 2 - 450, muteY, `MUTE: ${isMuted ? 'ON' : 'OFF'}`, {
+            fontSize: '20px',
+            color: isMuted ? '#ff6b6b' : '#64d5ff',
+            fontStyle: 'bold',
+            backgroundColor: isMuted ? '#4a2a2a' : '#1a3a3e',
+            padding: { x: 15, y: 10 },
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+
+        this.muteBtn.on('pointerdown', () => {
+            const newMuteState = this.audioManager?.toggleMute() || false;
+            this.muteBtn.setText(`MUTE: ${newMuteState ? 'ON' : 'OFF'}`);
+            this.muteBtn.setColor(newMuteState ? '#ff6b6b' : '#64d5ff');
+            this.muteBtn.setBackgroundColor(newMuteState ? '#4a2a2a' : '#1a3a3e');
+            
+            // Update the top bar mute button
+            const topMuteBtn = document.getElementById('mute-btn');
+            if (topMuteBtn) {
+                topMuteBtn.textContent = newMuteState ? '🔇' : '🔊';
+            }
+        });
+
+        this.muteBtn.on('pointerover', () => {
+            this.muteBtn.setScale(1.05);
+        });
+
+        this.muteBtn.on('pointerout', () => {
+            this.muteBtn.setScale(1);
+        });
+
+        // ---------- SET TO DEFAULT BUTTON (moved to audio section) ----------
+        const defaultBtn = this.add.text(width / 2 - 450, audioY + 220, 'SET TO DEFAULT', {
+            fontSize: '24px',
+            color: '#ffa500',
+            fontStyle: 'bold',
+            align: 'center',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+
+        defaultBtn.on('pointerover', () => {
+            defaultBtn.setColor('#ffffff');
+            defaultBtn.setScale(1.05);
+        });
+
+        defaultBtn.on('pointerout', () => {
+            defaultBtn.setColor('#ffa500');
+            defaultBtn.setScale(1);
+        });
+
+        defaultBtn.on('pointerdown', () => {
+            this.resetToDefaults();
+        });
+
         // ---------- DELETE DATA BUTTON ----------
-        const deleteBtn = this.add.text(width / 2, height / 2 - 40, 'DELETE ALL DATA', {
-            fontSize: '32px',
+        const deleteBtn = this.add.text(width / 2, height - 120, 'DELETE ALL DATA', {
+            fontSize: '28px',
             color: '#ff6b6b',
             fontStyle: 'bold',
             align: 'center',
@@ -50,7 +149,7 @@ export default class SettingsScene extends Phaser.Scene {
 
         deleteBtn.on('pointerover', () => {
             deleteBtn.setColor('#ffffff');
-            deleteBtn.setScale(1.1);
+            deleteBtn.setScale(1.05);
         });
 
         deleteBtn.on('pointerout', () => {
@@ -63,8 +162,8 @@ export default class SettingsScene extends Phaser.Scene {
         });
 
         // ---------- BACK BUTTON ----------
-        const backBtn = this.add.text(width / 2, height / 2 + 120, 'BACK TO MENU', {
-            fontSize: '36px',
+        const backBtn = this.add.text(width / 2, height - 40, 'BACK TO MENU', {
+            fontSize: '32px',
             color: '#64d5ff',
             fontStyle: 'bold',
             align: 'center',
@@ -73,7 +172,7 @@ export default class SettingsScene extends Phaser.Scene {
 
         backBtn.on('pointerover', () => {
             backBtn.setColor('#ffffff');
-            backBtn.setScale(1.1);
+            backBtn.setScale(1.05);
         });
 
         backBtn.on('pointerout', () => {
@@ -89,6 +188,71 @@ export default class SettingsScene extends Phaser.Scene {
         this.input.keyboard.once('keydown-ESC', () => {
             this.scene.start('MenuScene');
         });
+    }
+
+    /**
+     * Create a volume control slider with label and display
+     */
+    createVolumeControl(x, y, label, initialValue, callback) {
+        // Label
+        this.add.text(x, y, label, {
+            fontSize: '18px',
+            color: '#ffffff',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0, 0);
+
+        // Background bar
+        const barWidth = 200;
+        const barHeight = 20;
+        const barX = x + 150;
+        const bar = this.add.rectangle(barX, y + 9, barWidth, barHeight, 0x333333)
+            .setOrigin(0, 0.5)
+            .setStrokeStyle(2, 0x64d5ff, 1);
+
+        // Filled portion
+        const fill = this.add.rectangle(barX, y + 9, barWidth * initialValue, barHeight, 0x64d5ff)
+            .setOrigin(0, 0.5);
+
+        // Value display
+        const valueText = this.add.text(barX + barWidth + 20, y, Math.round(initialValue * 100) + '%', {
+            fontSize: '16px',
+            color: '#64d5ff',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0, 0);
+
+        // Make bar interactive
+        bar.setInteractive({ useHandCursor: true });
+
+        bar.on('pointerdown', (pointer) => {
+            this.updateVolumeSlider(pointer, bar, fill, barX, barWidth, valueText, callback);
+        });
+
+        bar.on('pointermove', (pointer) => {
+            if (pointer.isDown) {
+                this.updateVolumeSlider(pointer, bar, fill, barX, barWidth, valueText, callback);
+            }
+        });
+
+        // Return references for updating
+        return { fill, valueText };
+    }
+
+    /**
+     * Update the volume slider position based on pointer
+     */
+    updateVolumeSlider(pointer, bar, fill, barX, barWidth, valueText, callback) {
+        const relativeX = pointer.x - barX;
+        const clampedX = Math.max(0, Math.min(barWidth, relativeX));
+        const volumePercent = clampedX / barWidth;
+
+        // Update fill bar width (don't change origin)
+        fill.setSize(clampedX, fill.height);
+
+        valueText.setText(Math.round(volumePercent * 100) + '%');
+
+        if (callback) {
+            callback(volumePercent);
+        }
     }
 
     showDeleteConfirmation() {
@@ -155,6 +319,64 @@ export default class SettingsScene extends Phaser.Scene {
             descText.destroy();
             confirmBtn.destroy();
             cancelBtn.destroy();
+        });
+    }
+
+    /**
+     * Reset audio settings to default values
+     */
+    resetToDefaults() {
+        if (!this.audioManager) return;
+
+        // Reset to default values
+        this.audioManager.setMasterVolume(0.5);
+        this.audioManager.setSoundVolume(0.4);
+        this.audioManager.setMusicVolume(0.6);
+        this.audioManager.setMute(false);
+
+        // Update settings scene sliders
+        if (this.masterVolumeControls) {
+            this.masterVolumeControls.fill.setSize(200 * 0.5, this.masterVolumeControls.fill.height);
+            this.masterVolumeControls.valueText.setText('50%');
+        }
+        if (this.soundVolumeControls) {
+            this.soundVolumeControls.fill.setSize(200 * 0.4, this.soundVolumeControls.fill.height);
+            this.soundVolumeControls.valueText.setText('40%');
+        }
+        if (this.musicVolumeControls) {
+            this.musicVolumeControls.fill.setSize(200 * 0.6, this.musicVolumeControls.fill.height);
+            this.musicVolumeControls.valueText.setText('60%');
+        }
+
+        // Update mute button in settings
+        if (this.muteBtn) {
+            this.muteBtn.setText('MUTE: OFF');
+            this.muteBtn.setColor('#64d5ff');
+            this.muteBtn.setBackgroundColor('#1a3a3e');
+        }
+
+        // Update top bar controls
+        const volumeSlider = document.getElementById('volume-slider');
+        const muteBtn = document.getElementById('mute-btn');
+        if (volumeSlider) {
+            volumeSlider.value = 50; // 0.5 * 100
+        }
+        if (muteBtn) {
+            muteBtn.textContent = '🔊';
+        }
+
+        // Show confirmation message
+        const { width, height } = this.scale;
+        const confirmText = this.add.text(width / 2, height / 2, 'Audio settings reset to defaults!', {
+            fontSize: '24px',
+            color: '#64d5ff',
+            fontStyle: 'bold',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5).setDepth(25);
+
+        // Remove confirmation after 2 seconds
+        this.time.delayedCall(2000, () => {
+            confirmText.destroy();
         });
     }
 

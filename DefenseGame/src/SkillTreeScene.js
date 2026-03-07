@@ -4,11 +4,16 @@ import AudioManager from './AudioManager.js';
 export default class SkillTreeScene extends Phaser.Scene {
     constructor() {
         super('SkillTreeScene');
-        this.audioManager = new AudioManager();
+        this.audioManager = null;
         this.debug = false;
     }
 
     create() {
+        // Get or create audio manager
+        this.audioManager = this.registry.get('audioManager') || new AudioManager();
+        // Store in registry for other scenes
+        this.registry.set('audioManager', this.audioManager);
+
         const { width, height } = this.scale;
         
         // ============ BACKGROUND WITH SOLID COLOR ============

@@ -13,10 +13,13 @@ export default class Level3Scene extends Phaser.Scene {
                 arcade: { gravity: { y: 0 }, debug: false }
             }
         });
-        this.audioManager = new AudioManager();
+        this.audioManager = null;
     }
 
     preload() {
+        // Get or create audio manager
+        this.audioManager = AudioManager.getInstance();
+
         // Load grass tiles (support optional `grass_new` replacement)
         this.load.image('grass_new', 'assets/Tiles/grass_new.png');
         this.load.image('stone_horizontal','assets/Tiles/stone_horizontal.png');
@@ -499,6 +502,14 @@ export default class Level3Scene extends Phaser.Scene {
     setupAudioControls() {
         const muteBtn = document.getElementById('mute-btn');
         const volumeSlider = document.getElementById('volume-slider');
+        
+        // Initialize UI state
+        if (muteBtn) {
+            muteBtn.textContent = this.audioManager.getIsMuted() ? '🔇' : '🔊';
+        }
+        if (volumeSlider) {
+            volumeSlider.value = Math.round(this.audioManager.getMasterVolume() * 100);
+        }
 
         // Store references for cleanup on shutdown
         this.muteClickHandler = () => {

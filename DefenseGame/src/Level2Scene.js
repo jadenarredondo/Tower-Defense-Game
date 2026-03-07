@@ -5,10 +5,13 @@ import SkillTreeManager from './SkillTreeManager.js';
 export default class Level2Scene extends Phaser.Scene {
     constructor() {
         super('Level2Scene');
-        this.audioManager = new AudioManager();
+        this.audioManager = null;
     }
 
     preload() {
+        // Get or create audio manager
+        this.audioManager = AudioManager.getInstance();
+
         // CRITICAL ASSETS ONLY - load tiles, enemies, towers
         this.load.image('grass_new', 'assets/Tiles/grass_new.png');
         this.load.image('stone_horizontal','assets/Tiles/stone_horizontal.png');
@@ -1416,6 +1419,14 @@ export default class Level2Scene extends Phaser.Scene {
     setupAudioControls() {
         const muteBtn = document.getElementById('mute-btn');
         const volumeSlider = document.getElementById('volume-slider');
+        
+        // Initialize UI state
+        if (muteBtn) {
+            muteBtn.textContent = this.audioManager.getIsMuted() ? '🔇' : '🔊';
+        }
+        if (volumeSlider) {
+            volumeSlider.value = Math.round(this.audioManager.getMasterVolume() * 100);
+        }
 
         // Store references for cleanup on shutdown
         this.muteClickHandler = () => {

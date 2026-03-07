@@ -4,10 +4,13 @@ import AudioManager from './AudioManager.js';
 export default class MenuScene extends Phaser.Scene {
     constructor() {
         super('MenuScene');
-        this.audioManager = new AudioManager();
+        this.audioManager = null;
     }
 
     preload() {
+        // Initialize audio manager on first load
+        this.audioManager = AudioManager.getInstance();
+        
         // Initialize progress on menu load
         ProgressManager.initProgress();
         // Initialize audio context
@@ -282,6 +285,54 @@ export default class MenuScene extends Phaser.Scene {
         this.input.keyboard.on('keydown-DOWN', () => {
             updateMenuScroll(scrollOffset + 50);
         });
+
+        // Setup audio controls for the top bar
+        this.setupAudioControls();
+
+        // Add shutdown cleanup
+        this.events.once('shutdown', () => {
+            const muteBtn = document.getElementById('mute-btn');
+            const volumeSlider = document.getElementById('volume-slider');
+            if (muteBtn && this.muteClickHandler) {
+                muteBtn.removeEventListener('click', this.muteClickHandler);
+            }
+            if (volumeSlider && this.volumeChangeHandler) {
+                volumeSlider.removeEventListener('input', this.volumeChangeHandler);
+            }
+        });
+    }
+
+    setupAudioControls() {
+        const muteBtn = document.getElementById('mute-btn');
+        const volumeSlider = document.getElementById('volume-slider');
+        
+        // Initialize UI state
+        if (muteBtn) {
+            muteBtn.textContent = this.audioManager.getIsMuted() ? '🔇' : '🔊';
+        }
+        if (volumeSlider) {
+            volumeSlider.value = Math.round(this.audioManager.getMasterVolume() * 100);
+        }
+
+        // Store references for cleanup on shutdown
+        this.muteClickHandler = () => {
+            const isMuted = this.audioManager.toggleMute();
+            muteBtn.textContent = isMuted ? '🔇' : '🔊';
+            this.audioManager.playClick();
+        };
+        
+        this.volumeChangeHandler = (e) => {
+            const volume = parseFloat(e.target.value) / 100;
+            this.audioManager.setMasterVolume(volume);
+        };
+
+        if (muteBtn) {
+            muteBtn.addEventListener('click', this.muteClickHandler);
+        }
+
+        if (volumeSlider) {
+            volumeSlider.addEventListener('input', this.volumeChangeHandler);
+        }
     }
 
     showAchievements() {

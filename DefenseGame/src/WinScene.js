@@ -31,10 +31,11 @@ export default class WinScene extends Phaser.Scene {
         // Save progress (redundant calls are OK)
         ProgressManager.completeLevel(this.levelNumber);
 
-        // Try unlocking achievements and show a small popup when unlocked
-        const unlocked = AchievementManager.unlockAchievement('first_win');
-        if (unlocked) {
-            const achText = this.add.text(width / 2, height / 2 - 220, `Achievement Unlocked: ${AchievementManager.ACHIEVEMENTS.first_win.name} ${AchievementManager.ACHIEVEMENTS.first_win.icon}`, {
+        // helper to display unlocked achievement
+        const display = (id) => {
+            const ach = AchievementManager.ACHIEVEMENTS[id];
+            if (!ach) return;
+            const achText = this.add.text(width / 2, height / 2 - 220 + (20 * this.unlockedCount), `Achievement Unlocked: ${ach.name} ${ach.icon}`, {
                 fontSize: '20px',
                 color: '#FFD700',
                 fontFamily: 'Arial',
@@ -49,7 +50,20 @@ export default class WinScene extends Phaser.Scene {
                 useFrames: false,
                 onComplete: () => achText.destroy()
             });
-        }
+            this.unlockedCount++;
+        };
+
+        // Try unlocking first victory
+        this.unlockedCount = 0;
+        if (AchievementManager.unlockAchievement('first_win')) display('first_win');
+        // additional conditions passed via data
+        const { elapsed = 0, perfect = false, speedrun = false } = data;
+        if (perfect && AchievementManager.unlockAchievement('no_damage')) display('no_damage');
+        if (speedrun && AchievementManager.unlockAchievement('speedrun')) display('speedrun');
+        if (data.gold >= 10000 && AchievementManager.unlockAchievement('rich')) display('rich');
+        // all levels check
+        const levels = ProgressManager.getUnlockedLevels();
+        if (levels.length >= ProgressManager.MAX_LEVELS && AchievementManager.unlockAchievement('all_levels')) display('all_levels');
 
         // Get gold from passed data (will be set by the calling level scene)
         const gold = data.gold || 0;

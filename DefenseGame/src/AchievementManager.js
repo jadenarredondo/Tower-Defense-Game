@@ -21,13 +21,13 @@ export default class AchievementManager {
         tower_master: {
             id: 'tower_master',
             name: 'Tower Master',
-            desc: 'Upgrade a tower to level 5',
+            desc: 'Upgrade a tower to level 10',
             icon: '📈'
         },
         rich: {
             id: 'rich',
             name: 'Rich!',
-            desc: 'End a level with 500+ gold',
+            desc: 'End a level with 10000+ gold',
             icon: '💰'
         },
         all_levels: {

@@ -1,6 +1,7 @@
 import Tower from './Tower.js';
 import AudioManager from './AudioManager.js';
 import SkillTreeManager from './SkillTreeManager.js';
+import AchievementManager from './AchievementManager.js';
 
 export default class Level2Scene extends Phaser.Scene {
     constructor() {
@@ -80,6 +81,8 @@ export default class Level2Scene extends Phaser.Scene {
         this.audioManager.resume();
         this.audioManager.playBackgroundMusic();
         this.setupAudioControls();
+        // start timer for speedrun
+        this.levelStartTimestamp = performance.now();
 
         // Create (or recreate) flying enemy animations from spritesheets
         // remove any stale animation definitions first so they point to the current texture
@@ -1202,6 +1205,9 @@ export default class Level2Scene extends Phaser.Scene {
             }
             this.updateUI();
             this.updateTowerSelectionUI();
+            if (tower.level >= 10) {
+                AchievementManager.unlockAchievement('tower_master');
+            }
         } else {
             console.log(`❌ Tower is already at maximum level!`);
         }
@@ -1412,7 +1418,10 @@ export default class Level2Scene extends Phaser.Scene {
         if (uiBar) uiBar.style.display = 'none';
         const towerSelectionPanel = document.getElementById('tower-selection-panel');
         if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
-        this.scene.launch('WinScene', { level: 2, gold: this.gold });
+        const elapsed = (performance.now() - this.levelStartTimestamp) / 1000;
+        const perfect = this.playerHealth === this.maxPlayerHealth;
+        const speedrun = elapsed < 120;
+        this.scene.launch('WinScene', { level: 2, gold: this.gold, elapsed, perfect, speedrun });
         this.scene.pause('Level2Scene');
     }
 

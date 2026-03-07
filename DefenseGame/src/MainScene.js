@@ -2,6 +2,7 @@ import Tower from './Tower.js';
 import AudioManager from './AudioManager.js';
 import EffectsManager from './EffectsManager.js';
 import SkillTreeManager from './SkillTreeManager.js';
+import AchievementManager from './AchievementManager.js';
 
 export default class MainScene extends Phaser.Scene {
     constructor() {
@@ -68,6 +69,8 @@ export default class MainScene extends Phaser.Scene {
         // ---------- AUDIO SETUP ----------
         this.audioManager.resume();
         this.setupAudioControls();
+        // record level start time for speedrun achievement
+        this.levelStartTimestamp = performance.now();
 
         // ---------- EFFECTS SETUP ----------
         this.effectsManager = new EffectsManager(this);
@@ -949,7 +952,10 @@ export default class MainScene extends Phaser.Scene {
         this.audioManager.playVictory();
         const uiBar = document.getElementById('game-ui');
         if (uiBar) uiBar.style.display = 'none';
-        this.scene.launch('WinScene', { level: 1, gold: this.gold });
+        const elapsed = (performance.now() - this.levelStartTimestamp) / 1000;
+        const perfect = this.playerHealth === this.maxPlayerHealth;
+        const speedrun = elapsed < 120;
+        this.scene.launch('WinScene', { level: 1, gold: this.gold, elapsed, perfect, speedrun });
         this.scene.pause('MainScene');
     }
 
@@ -1235,6 +1241,10 @@ export default class MainScene extends Phaser.Scene {
             }
             this.updateUI();
             this.updateTowerSelectionUI();
+            // unlock tower master if reached level 10
+            if (tower.level >= 10) {
+                AchievementManager.unlockAchievement('tower_master');
+            }
         } else {
             console.log(`❌ Tower is already at maximum level!`);
         }

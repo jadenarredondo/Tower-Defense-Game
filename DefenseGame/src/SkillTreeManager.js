@@ -35,7 +35,7 @@ export default class SkillTreeManager {
         },
         tower_range: {
             name: 'Far Sight',
-            description: '+5% tower range',
+            description: '+10% tower range',
             icon: '🎯',
             maxLevel: 3,
             costPerLevel: (level) => Math.pow(2, level - 1),

@@ -1018,7 +1018,7 @@ export default class Level2Scene extends Phaser.Scene {
             stats.innerHTML = `
                 <p style="color: #a8daff; margin: 5px 0;"><strong>Damage:</strong> ${tower.damage.toFixed(1)}</p>
                 <p style="color: #a8daff; margin: 5px 0;"><strong>Attack Speed:</strong> ${tower.attackSpeed}ms</p>
-                <p style="color: #a8daff; margin: 5px 0;"><strong>Range:</strong> ${tower.range}</p>
+                <p style="color: #a8daff; margin: 5px 0;"><strong>Range:</strong> ${Math.round(tower.range)}</p>
             `;
         }
         menu.appendChild(stats);

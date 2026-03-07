@@ -714,7 +714,7 @@ export default class MainScene extends Phaser.Scene {
         document.getElementById('tower-info-level').textContent = `LEVEL ${tower.level}`;
         document.getElementById('tower-info-damage').textContent = `DMG: ${tower.damage.toFixed(1)}`;
         document.getElementById('tower-info-speed').textContent = `SPEED: ${tower.attackSpeed}ms`;
-        document.getElementById('tower-info-range').textContent = `RANGE: ${tower.range}`;
+        document.getElementById('tower-info-range').textContent = `RANGE: ${Math.round(tower.range)}`;
         
         const upgradeCost = Math.floor(this.towerTypes[this.selectedTowerType].cost * 0.5);
         document.getElementById('tower-info-upgrade').textContent = `UPGRADE: ${upgradeCost}g`;
@@ -1082,7 +1082,7 @@ export default class MainScene extends Phaser.Scene {
             stats.innerHTML = `
                 <p style="color: #a8daff; margin: 5px 0;"><strong>Damage:</strong> ${tower.damage.toFixed(1)}</p>
                 <p style="color: #a8daff; margin: 5px 0;"><strong>Attack Speed:</strong> ${tower.attackSpeed}ms</p>
-                <p style="color: #a8daff; margin: 5px 0;"><strong>Range:</strong> ${tower.range}</p>
+                <p style="color: #a8daff; margin: 5px 0;"><strong>Range:</strong> ${Math.round(tower.range)}</p>
             `;
         }
         menu.appendChild(stats);

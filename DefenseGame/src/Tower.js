@@ -471,17 +471,26 @@ export default class Tower {
             this.moneyGain += 5;  // Add 5 gold/sec per upgrade
             if (this.scene.debug) console.log(`🌾 Farm upgraded! Now generates ${this.moneyGain} gold/sec`);
         } else {
-            // Combat towers get more damage and attack speed
-            // All combat towers (including Izanami) increase damage on upgrade
+            // Combat towers get more damage on upgrade
+            // All combat towers increase damage on upgrade
             this.damage += 1;  // Increase damage per level
-            if (this.scene.debug) {
-                if (this.imageKey === 'tower_izanami') {
-                    console.log(`🏹 Izanami upgraded! Damage now: ${this.damage}`);
-                } else {
-                    console.log(`⚔️ Tower upgraded! Damage now: ${this.damage}`);
+            
+            // Range: Only Izanami (basic tower) gets range increase, not Susanoo
+            if (this.imageKey === 'tower_izanami') {
+                this.range += 11.11;  // Increase range by ~11.11 per level for Izanami (10 levels = +111 ≈ 100 total for 200→300)
+                // Update range circle visual
+                if (this.rangeCircle) {
+                    this.rangeCircle.setRadius(this.range);
                 }
             }
-            this.attackSpeed = Math.max(200, this.attackSpeed - 50);  // Slight attack speed increase
+            // Susanoo does NOT get range increase - stays the same
+            
+            // Attack speed: Increase (decrease delay) so tower attacks faster
+            this.attackSpeed = Math.max(200, this.attackSpeed - 50);  // 50ms faster per upgrade, min 200ms
+            
+            if (this.scene.debug) {
+                console.log(`⚔️ Tower upgraded! Damage: ${this.damage}, Range: ${this.range}, Speed: ${this.attackSpeed}ms`);
+            }
         }
         
         // Visual feedback - increase in size
@@ -492,7 +501,7 @@ export default class Tower {
             this.audioManager.playUpgrade();
         }
         
-        // Update attack timer with new speed
+        // Update attack timer with new speed (faster attacks = lower delay)
         if (this.timer) {
             this.timer.destroy();
             this.timer = this.scene.time.addEvent({
@@ -503,7 +512,7 @@ export default class Tower {
             });
         }
         
-        if (this.scene.debug) console.log(`🔧 Tower upgraded to level ${this.level}/${this.maxLevel}! Damage: ${this.damage.toFixed(1)}, Speed: ${this.attackSpeed}ms`);
+        if (this.scene.debug) console.log(`🔧 Tower upgraded to level ${this.level}/${this.maxLevel}! Damage: ${this.damage.toFixed(1)}, Speed: ${this.attackSpeed}ms, Range: ${this.range}`);
         return true;
     }
 

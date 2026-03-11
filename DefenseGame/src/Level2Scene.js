@@ -499,6 +499,9 @@ export default class Level2Scene extends Phaser.Scene {
         if (towerSelectionPanel) towerSelectionPanel.style.display = 'flex';
 
         this.events.on('shutdown', () => {
+            // Hide all game UI elements
+            const uiBar = document.getElementById('game-ui');
+            const towerSelectionPanel = document.getElementById('tower-selection-panel');
             if (uiBar) uiBar.style.display = 'none';
             if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
             if (this.audioManager) this.audioManager.stopBackgroundMusic();
@@ -571,8 +574,19 @@ export default class Level2Scene extends Phaser.Scene {
             }
         });
         this.events.on('sleep', () => {
+            // Hide all game UI elements when scene is paused
+            const uiBar = document.getElementById('game-ui');
+            const towerSelectionPanel = document.getElementById('tower-selection-panel');
             if (uiBar) uiBar.style.display = 'none';
             if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
+        });
+
+        this.events.on('wake', () => {
+            // Show all game UI elements when scene is resumed from pause
+            const uiBar = document.getElementById('game-ui');
+            const towerSelectionPanel = document.getElementById('tower-selection-panel');
+            if (uiBar) uiBar.style.display = 'flex';
+            if (towerSelectionPanel) towerSelectionPanel.style.display = 'flex';
         });
 
         // ---------- START FIRST WAVE ----------
@@ -820,15 +834,15 @@ export default class Level2Scene extends Phaser.Scene {
         // 2 = Power tower
         this.input.keyboard.on('keydown-TWO', () => {
             if (this.audioManager) this.audioManager.playClick();
-            this.selectTowerType('power');
-            if (this.debug) console.log('⌨️ Selected: Power Tower (hotkey 2)');
+            this.selectTowerType('projectile');
+            if (this.debug) console.log('⌨️ Selected: Projectile Tower (hotkey 2)');
         });
 
         // 3 = Sniper tower
         this.input.keyboard.on('keydown-THREE', () => {
             if (this.audioManager) this.audioManager.playClick();
-            this.selectTowerType('sniper');
-            if (this.debug) console.log('⌨️ Selected: Sniper Tower (hotkey 3)');
+            this.selectTowerType('farm');
+            if (this.debug) console.log('⌨️ Selected: Farm Tower (hotkey 3)');
         });
     }
 

@@ -425,6 +425,9 @@ export default class MainScene extends Phaser.Scene {
         if (towerSelectionPanel) towerSelectionPanel.style.display = 'flex';
 
         this.events.on('shutdown', () => {
+            // Hide all game UI elements
+            const uiBar = document.getElementById('game-ui');
+            const towerSelectionPanel = document.getElementById('tower-selection-panel');
             if (uiBar) uiBar.style.display = 'none';
             if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
             if (this.audioManager) this.audioManager.stopBackgroundMusic();
@@ -457,8 +460,19 @@ export default class MainScene extends Phaser.Scene {
             }
         });
         this.events.on('sleep', () => {
+            // Hide all game UI elements when scene is paused
+            const uiBar = document.getElementById('game-ui');
+            const towerSelectionPanel = document.getElementById('tower-selection-panel');
             if (uiBar) uiBar.style.display = 'none';
             if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
+        });
+
+        this.events.on('wake', () => {
+            // Show all game UI elements when scene is resumed from pause
+            const uiBar = document.getElementById('game-ui');
+            const towerSelectionPanel = document.getElementById('tower-selection-panel');
+            if (uiBar) uiBar.style.display = 'flex';
+            if (towerSelectionPanel) towerSelectionPanel.style.display = 'flex';
         });
 
         // ---------- START FIRST WAVE ----------

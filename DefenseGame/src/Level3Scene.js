@@ -89,6 +89,9 @@ export default class Level3Scene extends Phaser.Scene {
     }
 
     create() {
+        // Ensure scene is not paused when starting
+        this.scene.resume('Level3Scene');
+        
         // round camera pixels to avoid rendering gaps
         this.cameras.main.roundPixels = true;
         // ---------- AUDIO SETUP ----------
@@ -97,6 +100,19 @@ export default class Level3Scene extends Phaser.Scene {
         this.setupAudioControls();
         // track start time for achievements
         this.levelStartTimestamp = performance.now();
+
+        // Reset flags and state for fresh game start
+        this._winTriggered = false;
+        this._shutdownHandled = false;
+        this.currentWave = 0;
+        this.waveActive = false;
+        this.waveEnemyCount = 0;
+        this.enemiesAlive = 0;
+        this.nextWaveCountdown = 0;
+        this.waveTimer = null;
+        
+        // Reset time scale to normal
+        this.time.timeScale = 1;
 
         // Create flying enemy animations from spritesheets
         // remove any stale animation definitions so they use the freshly loaded textures
@@ -168,8 +184,8 @@ export default class Level3Scene extends Phaser.Scene {
         this.cameraSpeed = 10;
 
         // ---------- PLAYER ----------
-        this.playerHealth = 15;
-        this.maxPlayerHealth = 15;
+        this.playerHealth = 20;
+        this.maxPlayerHealth = 20;
         this.maxTowers = 8;
         this.gold = 400;
         this.baseGoldReward = 15;
@@ -404,12 +420,21 @@ export default class Level3Scene extends Phaser.Scene {
 
         // Setup waves
         this.waves = [
-            { count: 20, delay: 600, duration: 30000 },
-            { count: 25, delay: 500, duration: 30000 },
-            { count: 30, delay: 450, duration: 30000 },
-            { count: 35, delay: 400, duration: 30000 },
-            { count: 40, delay: 400, duration: 35000 },
-            { count: 45, delay: 350, duration: 35000 }
+            { count: 15, delay: 700, duration: 25000 },
+            { count: 18, delay: 650, duration: 25000 },
+            { count: 22, delay: 600, duration: 28000 },
+            { count: 25, delay: 550, duration: 28000 },
+            { count: 28, delay: 500, duration: 30000 },
+            { count: 32, delay: 480, duration: 32000 },
+            { count: 35, delay: 450, duration: 32000 },
+            { count: 38, delay: 420, duration: 34000 },
+            { count: 42, delay: 400, duration: 35000 },
+            { count: 45, delay: 380, duration: 36000 },
+            { count: 48, delay: 360, duration: 37000 },
+            { count: 52, delay: 340, duration: 38000 },
+            { count: 55, delay: 320, duration: 39000 },
+            { count: 58, delay: 300, duration: 40000 },
+            { count: 65, delay: 280, duration: 42000 }
         ];
         this.currentWave = 0;
         this.waveActive = false;
@@ -425,7 +450,7 @@ export default class Level3Scene extends Phaser.Scene {
             this.scene.pause(); 
         });
 
-        // UI Visibility
+        // ---------- UI VISIBILITY ----------
         const uiBar = document.getElementById('game-ui');
         const towerSelectionPanel = document.getElementById('tower-selection-panel');
         if (uiBar) uiBar.style.display = 'flex';
@@ -437,6 +462,9 @@ export default class Level3Scene extends Phaser.Scene {
             }
             this._shutdownHandled = true;
 
+            // Hide all game UI elements
+            const uiBar = document.getElementById('game-ui');
+            const towerSelectionPanel = document.getElementById('tower-selection-panel');
             if (uiBar) uiBar.style.display = 'none';
             if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
             if (this.audioManager) this.audioManager.stopBackgroundMusic();
@@ -494,8 +522,19 @@ export default class Level3Scene extends Phaser.Scene {
             }
         });
         this.events.on('sleep', () => {
+            // Hide all game UI elements when scene is paused
+            const uiBar = document.getElementById('game-ui');
+            const towerSelectionPanel = document.getElementById('tower-selection-panel');
             if (uiBar) uiBar.style.display = 'none';
             if (towerSelectionPanel) towerSelectionPanel.style.display = 'none';
+        });
+
+        this.events.on('wake', () => {
+            // Show all game UI elements when scene is resumed from pause
+            const uiBar = document.getElementById('game-ui');
+            const towerSelectionPanel = document.getElementById('tower-selection-panel');
+            if (uiBar) uiBar.style.display = 'flex';
+            if (towerSelectionPanel) towerSelectionPanel.style.display = 'flex';
         });
         
         // Start first wave
@@ -575,7 +614,11 @@ export default class Level3Scene extends Phaser.Scene {
         if (this.waveActive) {
             if (this.enemiesAlive === 0 && this.waveEnemyCount === 0) {
                 this.waveActive = false;
-                if (this.waves && this.currentWave < this.waves.length) {
+                if (this.waves && this.currentWave < this.waves.length - 1) {
+                    this.currentWave++;
+                    this.updateUI();
+                } else if (this.waves && this.currentWave === this.waves.length - 1) {
+                    // Last wave completed, trigger win condition
                     this.currentWave++;
                     this.updateUI();
                 }
@@ -597,6 +640,9 @@ export default class Level3Scene extends Phaser.Scene {
 
     startWave() {
         if (!this.waves || this.currentWave >= this.waves.length) return;
+        
+        // Increase tower slots per wave (allow one more tower after each wave completion)
+        this.maxTowers = 8 + this.currentWave - 1;
         
         const wave = this.waves[this.currentWave];
         const isFinalWave = this.currentWave >= this.waves.length - 1;
@@ -1127,10 +1173,15 @@ export default class Level3Scene extends Phaser.Scene {
 
         // wave info: guard against waves being undefined or not an array
         let totalWaves = '?';
+        let displayWave = this.currentWave + 1;
         if (Array.isArray(this.waves)) {
             totalWaves = this.waves.length;
+            // Safeguard: ensure the displayed wave never exceeds total waves
+            if (displayWave > totalWaves) {
+                displayWave = totalWaves;
+            }
         }
-        this.waveNumberElement.textContent = `Wave ${this.currentWave + 1}/${totalWaves}`;
+        this.waveNumberElement.textContent = `Wave ${displayWave}/${totalWaves}`;
         this.waveStatusElement.textContent = this.waveActive ? `Enemies: ${this.enemiesAlive}` : 'Ready';
 
         // towers count
@@ -1310,79 +1361,6 @@ export default class Level3Scene extends Phaser.Scene {
             if (this.audioManager) this.audioManager.playClick();
             this.selectTowerType('farm');
             if (this.debug) console.log('⌨️ Selected: Farm Tower (hotkey 3)');
-        });
-    }
-
-    // animate enemies past the exit and apply damage
-    handleEnemyEscape(enemy){
-        if(enemy._exited) return;
-        enemy._exited = true;
-
-        this.playerHealth -= enemy.damage;
-        if(enemy.healthBar) enemy.healthBar.destroy();
-        this.enemiesAlive--;
-        console.log(`Enemy escaped! Alive: ${this.enemiesAlive}`);
-
-        // determine exit direction
-        let offX = enemy.x;
-        let offY = enemy.y;
-        if(this.path.length >= 2){
-            const last = this.path[this.path.length-1];
-            const prev = this.path[this.path.length-2];
-            const dx = last.x - prev.x;
-            const dy = last.y - prev.y;
-            offX = last.x*this.tileSize + this.tileSize/2 + dx*this.tileSize*2;
-            offY = last.y*this.tileSize + this.tileSize/2 + dy*this.tileSize*2;
-        }
-        this.tweens.add({
-            targets: enemy,
-            x: offX,
-            y: offY,
-            duration: 300 / this.time.timeScale,
-            ease: 'Linear',
-            onComplete: ()=>{
-                try{ enemy.destroy(); }catch(e){}
-                if(this.enemies) this.enemies.remove(enemy);
-                if(this.playerHealth<=0) this.loseGame();
-            }
-        });
-    }
-
-    moveEnemy(enemy){
-        if(!enemy || !enemy.active) return;
-        if(enemy.pathIndex>=this.path.length-1){
-            this.handleEnemyEscape(enemy);
-            return;
-        }
-
-        const next = this.path[enemy.pathIndex+1];
-        const baseDuration = Math.max(300, 800 - this.currentWave*80);
-        const duration = baseDuration / this.time.timeScale;
-
-        this.tweens.add({
-            targets: enemy,
-            x: next.x*this.tileSize + this.tileSize/2,
-            y: next.y*this.tileSize + this.tileSize/2,
-            duration: duration,
-            ease:'Linear',
-            useFrames: false,
-            onUpdate: ()=>{ 
-                // Validate enemy still exists before updating
-                if(enemy && enemy.active && enemy.healthBar && !enemy.destroyed) {
-                    enemy.healthBar.setPosition(enemy.x, enemy.y-40);
-                    enemy.setDepth(5100 + enemy.y);
-                }
-            },
-            onComplete: ()=>{
-                // Validate enemy still exists before continuing
-                if(!enemy || !enemy.active || enemy.destroyed) return;
-                enemy.pathIndex++;
-                if(enemy.pathIndex>=this.path.length-1){
-                    this.handleEnemyEscape(enemy);
-                } else {
-                    this.moveEnemy(enemy);
-                }
-            }
         });
     }
 

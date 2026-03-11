@@ -14,6 +14,19 @@ export default class LoseScene extends Phaser.Scene {
     }
 
     create() {
+        // Hide all game UI elements that might be visible from previous scenes
+        const uiElements = [
+            'game-ui',
+            'tower-selection-panel'
+        ];
+
+        uiElements.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style.display = 'none';
+            }
+        });
+
         const { width, height } = this.scale;
 
         // Background with gradient effect

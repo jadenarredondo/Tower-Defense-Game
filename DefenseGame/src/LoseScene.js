@@ -52,6 +52,9 @@ export default class LoseScene extends Phaser.Scene {
             case 3:
                 this.levelType = 'Level3Scene';
                 break;
+            case 4:
+                this.levelType = 'Level4Scene';
+                break;
             default:
                 this.levelType = 'MainScene';
                 break;
@@ -96,6 +99,9 @@ export default class LoseScene extends Phaser.Scene {
                 case 'Level3Scene':
                     levelName = 'Level3Scene';
                     break;
+                case 'Level4Scene':
+                    levelName = 'Level4Scene';
+                    break;
                 default:
                     levelName = 'MainScene';
                     break;
@@ -110,6 +116,8 @@ export default class LoseScene extends Phaser.Scene {
                 this.scene.stop('Level2Scene');
             } else if (this.levelType === 'Level3Scene') {
                 this.scene.stop('Level3Scene');
+            } else if (this.levelType === 'Level4Scene') {
+                this.scene.stop('Level4Scene');
             } else {
                 this.scene.stop('MainScene');
             }

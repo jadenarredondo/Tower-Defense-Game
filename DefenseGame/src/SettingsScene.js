@@ -44,6 +44,122 @@ export default class SettingsScene extends Phaser.Scene {
             fontFamily: 'Arial, sans-serif'
         }).setOrigin(0.5);
 
+        // --------- DEV ---------
+        const DEVY = height / 2 - 60;
+        this.Dev = this.add.text(width / 2 + 200, DEVY - 50, 'DEV', {
+            fontSize: '28px',
+            color: '#64d5ff',
+            fontStyle: 'bold',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0,0).setInteractive({ useHandCursor: true });
+
+        this.Dev.on('pointerdown', () => {
+            this.scene.start('DEVTools');
+        });
+
+        this.Dev.on('pointerover', () => {
+            this.Dev.setScale(1.05);
+        });
+
+        this.Dev.on('pointerout', () => {
+            this.Dev.setScale(1);
+        });
+
+        // DEV Buttons
+
+        // //Level 1
+        // //const DEVBY = DEVY + 10;
+        // this.DBtn1 = this.add.text(width / 2 + 200, DEVY + 10, 'Level 1 Unlock', {
+        //     fontSize: '20px',
+        //     //color: isMuted ? '#ff6b6b' : '#64d5ff',
+        //     fontStyle: 'bold',
+        //     //backgroundColor: isMuted ? '#4a2a2a' : '#1a3a3e',
+        //     padding: { x: 15, y: 10 },
+        //     fontFamily: 'Arial, sans-serif'
+        // }).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+
+        // this.DBtn1.on('pointerdown', () => {
+        //     ProgressManager.completeLevel(1);
+        // });
+
+        // this.DBtn1.on('pointerover', () => {
+        //     this.DBtn1.setScale(1.05);
+        // });
+
+        // this.DBtn1.on('pointerout', () => {
+        //     this.DBtn1.setScale(1);
+        // });
+
+        // //Level 2
+        
+        // this.DBtn2 = this.add.text(width / 2 + 200, DEVY + 40, 'Level 2 Unlock', {
+        //     fontSize: '20px',
+        //     //color: isMuted ? '#ff6b6b' : '#64d5ff',
+        //     fontStyle: 'bold',
+        //     //backgroundColor: isMuted ? '#4a2a2a' : '#1a3a3e',
+        //     padding: { x: 15, y: 10 },
+        //     fontFamily: 'Arial, sans-serif'
+        // }).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+
+        // this.DBtn2.on('pointerdown', () => {
+        //     ProgressManager.completeLevel(2);
+        // });
+
+        // this.DBtn2.on('pointerover', () => {
+        //     this.DBtn2.setScale(1.05);
+        // });
+
+        // this.DBtn2.on('pointerout', () => {
+        //     this.DBtn2.setScale(1);
+        // });
+
+        // //Level 3
+        
+        // this.DBtn3 = this.add.text(width / 2 + 200, DEVY + 70, 'Level 3 Unlock', {
+        //     fontSize: '20px',
+        //     //color: isMuted ? '#ff6b6b' : '#64d5ff',
+        //     fontStyle: 'bold',
+        //     //backgroundColor: isMuted ? '#4a2a2a' : '#1a3a3e',
+        //     padding: { x: 15, y: 10 },
+        //     fontFamily: 'Arial, sans-serif'
+        // }).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+
+        // this.DBtn3.on('pointerdown', () => {
+        //     ProgressManager.completeLevel(3);
+        // });
+
+        // this.DBtn3.on('pointerover', () => {
+        //     this.DBtn3.setScale(1.05);
+        // });
+
+        // this.DBtn3.on('pointerout', () => {
+        //     this.DBtn3.setScale(1);
+        // });
+
+        // //Level 4
+        
+        // this.DBtn4 = this.add.text(width / 2 + 200, DEVY + 100, 'Level 4 Unlock', {
+        //     fontSize: '20px',
+        //     //color: isMuted ? '#ff6b6b' : '#64d5ff',
+        //     fontStyle: 'bold',
+        //     //backgroundColor: isMuted ? '#4a2a2a' : '#1a3a3e',
+        //     padding: { x: 15, y: 10 },
+        //     fontFamily: 'Arial, sans-serif'
+        // }).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+
+        // this.DBtn4.on('pointerdown', () => {
+        //     ProgressManager.completeLevel(4);
+        // });
+
+        // this.DBtn4.on('pointerover', () => {
+        //     this.DBtn4.setScale(1.05);
+        // });
+
+        // this.DBtn4.on('pointerout', () => {
+        //     this.DBtn4.setScale(1);
+        // });
+
+
         // ---------- AUDIO SECTION ----------
         const audioY = height / 2 - 60;
         this.add.text(width / 2 - 500, audioY - 50, 'AUDIO SETTINGS', {

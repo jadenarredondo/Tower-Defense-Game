@@ -84,15 +84,7 @@ export default class Tower {
         
     }
 
-    // income() {
-    //     this.cWave = this.scene.currentWave;
-    //     if(this.scene.currentWave > this.cWave) {
-    //         this.scene.gold += this.moneyGain;
-    //         this.cWave += 1;
-    //         console.log('money earned');
-    //     }
-        
-    // }
+    
 
     attack() {
         const enemies = this.scene.enemies.getChildren();
@@ -464,6 +456,7 @@ export default class Tower {
         }
         
         this.level++;
+        this.upgradeCost += (this.level - 1) * 10;
         
         // Different upgrade effects based on tower type
         if (this.type === 'Farm') {

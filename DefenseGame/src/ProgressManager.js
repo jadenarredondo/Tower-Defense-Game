@@ -1,7 +1,7 @@
 export default class ProgressManager {
     static STORAGE_KEY = 'mythological_defense_progress';
     static SAVE_GAME_KEY = 'mythological_defense_save';
-    static MAX_LEVELS = 3;
+    static MAX_LEVELS = 4;
 
     static initProgress() {
         if (!localStorage.getItem(this.STORAGE_KEY)) {

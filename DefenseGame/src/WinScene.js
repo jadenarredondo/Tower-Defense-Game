@@ -39,6 +39,7 @@ export default class WinScene extends Phaser.Scene {
             case 1: this.levelType = 'MainScene'; break;
             case 2: this.levelType = 'Level2Scene'; break;
             case 3: this.levelType = 'Level3Scene'; break;
+            case 4: this.levelType = 'Level4Scene'; break;
         }
 
         // Save progress (redundant calls are OK)
@@ -103,6 +104,7 @@ export default class WinScene extends Phaser.Scene {
         let levelText = 'LEVEL 1';
         if (this.levelType === 'Level2Scene') levelText = 'LEVEL 2';
         else if (this.levelType === 'Level3Scene') levelText = 'LEVEL 3 - FINAL';
+        else if (this.levelType === 'Level4Scene') levelText = 'Level 4';
         
         this.add.text(width / 2, height / 2 - 70, `${levelText} COMPLETE!`, {
             fontSize: '32px',
@@ -175,11 +177,22 @@ export default class WinScene extends Phaser.Scene {
             // Level 3 complete - show "Skill Tree" and "Menu"
             this.createButton(width / 2 - 180, height / 2 + 140, 'SKILL TREE', '#7c3aed', () => {
                 this.scene.stop('Level3Scene');
-                this.scene.start('SkillTreeScene', { nextScene: 'LevelSelectScene', level: 1 });
+                this.scene.start('SkillTreeScene', { nextScene: 'Level4Scene', level: 4 });
             });
 
             this.createButton(width / 2 + 180, height / 2 + 140, 'MENU', '#6366f1', () => {
                 this.scene.stop('Level3Scene');
+                this.scene.start('MenuScene');
+            });
+        } else if (this.levelType === 'Level4Scene') {
+            // Level 4 complete - show "Skill Tree" and "Menu"
+            this.createButton(width / 2 - 180, height / 2 + 140, 'SKILL TREE', '#7c3aed', () => {
+                this.scene.stop('Level4Scene');
+                this.scene.start('SkillTreeScene', { nextScene: 'LevelSelectScene', level: 1 });
+            });
+
+            this.createButton(width / 2 + 180, height / 2 + 140, 'MENU', '#6366f1', () => {
+                this.scene.stop('Level4Scene');
                 this.scene.start('MenuScene');
             });
         }

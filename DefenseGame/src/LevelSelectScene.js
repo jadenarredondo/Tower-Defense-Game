@@ -65,7 +65,8 @@ export default class LevelSelectScene extends Phaser.Scene {
         const levelData = [
             { num: 1, name: 'LEVEL 1', desc: 'Intro to Defense', scene: 'MainScene' },
             { num: 2, name: 'LEVEL 2', desc: 'Larger Battlefield', scene: 'Level2Scene' },
-            { num: 3, name: 'LEVEL 3', desc: 'Final Stand', scene: 'Level3Scene' }
+            { num: 3, name: 'LEVEL 3', desc: 'Final Stand', scene: 'Level3Scene' },
+            { num: 4, name: 'LEVEL 4', desc: 'Test', scene: 'Level4Scene' }
         ];
 
         levelData.forEach((level, idx) => {
@@ -177,7 +178,7 @@ export default class LevelSelectScene extends Phaser.Scene {
     }
 
     startLevel(levelNum) {
-        const scenes = ['MainScene', 'Level2Scene', 'Level3Scene'];
+        const scenes = ['MainScene', 'Level2Scene', 'Level3Scene', 'Level4Scene'];
         const targetScene = scenes[levelNum - 1];
         this.scene.start('LoadingScene', { target: targetScene, payload: { level: levelNum } });
     }

@@ -5,8 +5,8 @@
 
 export const GAME = {
     // Level Configuration
-    MAX_LEVELS: 3,
-    LEVEL_KEYS: ['MainScene', 'Level2Scene', 'Level3Scene'],
+    MAX_LEVELS: 4,
+    LEVEL_KEYS: ['MainScene', 'Level2Scene', 'Level3Scene', 'Level4Scene'],
     
     // Scene Names (use instead of string literals)
     SCENES: {
@@ -17,8 +17,10 @@ export const GAME = {
         MAIN: 'MainScene',
         LEVEL_2: 'Level2Scene',
         LEVEL_3: 'Level3Scene',
+        LEVEL_4: 'Level4Scene',
         PAUSE: 'PauseScene',
         SETTINGS: 'SettingsScene',
+        DEV: 'DEVTools',
         WIN: 'WinScene',
         LOSE: 'LoseScene'
     },

@@ -18,24 +18,24 @@ export default class MainScene extends Phaser.Scene {
         this.audioManager = AudioManager.getInstance();
 
         // Load grass tiles (support optional `grass_new` replacement)
-        this.load.image('grass_new', 'assets/Tiles/grass_new.png');
-        this.load.image('stone_horizontal','assets/Tiles/stone_horizontal.png');
-        this.load.image('stone_vertical','assets/Tiles/stone_vertical.png');
-        this.load.image('corner_tl','assets/Tiles/corner_tl.png');
-        this.load.image('corner_tr','assets/Tiles/corner_tr.png');
-        this.load.image('corner_bl','assets/Tiles/corner_bl.png');
-        this.load.image('corner_br','assets/Tiles/corner_br.png');
+        this.load.image('grass_new', 'assets/tiles/grass_new.png');
+        this.load.image('stone_horizontal','assets/tiles/stone_horizontal.png');
+        this.load.image('stone_vertical','assets/tiles/stone_vertical.png');
+        this.load.image('corner_tl','assets/tiles/corner_tl.png');
+        this.load.image('corner_tr','assets/tiles/corner_tr.png');
+        this.load.image('corner_bl','assets/tiles/corner_bl.png');
+        this.load.image('corner_br','assets/tiles/corner_br.png');
 
         // Load core decoration assets
-        this.load.image('tree1','assets/Decorations/tree1.png');
-        this.load.image('tree2','assets/Decorations/tree2.png');
-        this.load.image('rock1','assets/Decorations/rock1.png');
-        this.load.image('rock2','assets/Decorations/rock2.png');
+        this.load.image('tree1','assets/decorations/tree1.png');
+        this.load.image('tree2','assets/decorations/tree2.png');
+        this.load.image('rock1','assets/decorations/rock1.png');
+        this.load.image('rock2','assets/decorations/rock2.png');
         // Bush spritesheets (8 frames each, 1024x128 -> 8x128 frames)
-        this.load.spritesheet('Bushe1','assets/Decorations/Bushe1.png', { frameWidth: 128, frameHeight: 128 });
-        this.load.spritesheet('Bushe2','assets/Decorations/Bushe2.png', { frameWidth: 128, frameHeight: 128 });
-        this.load.spritesheet('Bushe3','assets/Decorations/Bushe3.png', { frameWidth: 128, frameHeight: 128 });
-        this.load.spritesheet('Bushe4','assets/Decorations/Bushe4.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('Bushe1','assets/decorations/Bushe1.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('Bushe2','assets/decorations/Bushe2.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('Bushe3','assets/decorations/Bushe3.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('Bushe4','assets/decorations/Bushe4.png', { frameWidth: 128, frameHeight: 128 });
 
         // Load enemy assets from new Enemies folder
         this.load.image('enemy','assets/Enemies/enemy.png');
@@ -45,9 +45,9 @@ export default class MainScene extends Phaser.Scene {
         this.load.spritesheet('flying_dead','assets/Enemies/flying_dead.png', { frameWidth: 128, frameHeight: 128 });
 
         // Load tower spritesheets - 64x64 per frame
-        this.load.spritesheet('tower_izanami','assets/Tower/Izanami.png', { frameWidth: 64, frameHeight: 64 });
-        this.load.spritesheet('tower_susanoo','assets/Tower/Susanoo.png', { frameWidth: 64, frameHeight: 64 });
-        this.load.image('tower_farm','assets/Tower/shrine_farm.png');
+        this.load.spritesheet('tower_izanami','assets/tower/Izanami.png', { frameWidth: 64, frameHeight: 64 });
+        this.load.spritesheet('tower_susanoo','assets/tower/Susanoo.png', { frameWidth: 64, frameHeight: 64 });
+        this.load.image('tower_farm','assets/tower/shrine_farm.png');
         this.load.image('tower_placement','assets/Tower Placement/tower_placement.png');
 
         this.load.on('complete', () => {
@@ -58,7 +58,7 @@ export default class MainScene extends Phaser.Scene {
             ].forEach(key => {
                 if (this.textures.exists(key)) {
                     this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
-                }
+            }         
             });
         });
     }
@@ -193,7 +193,7 @@ basic: { name: 'Izanami', image: 'tower_izanami', cost: Math.floor(50 * this.ski
         const brush = this.add.image(0, 0, grassKey)
             .setDisplaySize(this.tileSize, this.tileSize)
             .setOrigin(0)
-            .setVisible(false);
+.setVisible(false);
         
         // Process grass in chunks of rows to avoid frame freezing
         const grassChunkSize = 4; // Process 4 rows per frame
